@@ -28,7 +28,8 @@ Features:
     1. Change `global/session_save` value to "db".
     2. Add a `global/redis_session` section with the appropriate configuration.
 
-        <config>
+```xml
+<config>
   <global>
     ...
     <session_save>db</session_save>
@@ -43,3 +44,4 @@ Features:
     ...
   </global>
 </config>
+```
