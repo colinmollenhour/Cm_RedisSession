@@ -58,3 +58,11 @@ one of these if you have root. lzf is easy to install via pecl:
 
     sudo pecl install lzf
 
+## Using with [Cm_Cache_Backend_Redis](https://github.com/colinmollenhour/Cm_Cache_Backend_Redis) ##
+
+Using Cm_RedisSession alongside Cm_Cache_Backend_Redis should be no problem at all. The main thing to
+keep in mind is that if both the cache and the sessions are using the same database, flushing the cache
+backend would also flush the sessions! So, don't use the same 'db' number for both if running only one
+instance of Redis. However, using a separate Redis instance for each is recommended to make sure that
+one or the other can't run wild consuming space and cause evictions for the other. For example,
+configure two instances each with 100M maxmemory rather than one instance with 200M maxmemory.
