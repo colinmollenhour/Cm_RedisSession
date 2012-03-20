@@ -18,7 +18,7 @@
  *  - The more processes there are requesting a lock on the session, the faster the lock will be broken.
  *
  */
-class Cm_Session_Model_Redis_Session extends Mage_Core_Model_Mysql4_Session
+class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 {
     const BREAK_AFTER        = 20;      /* Break the lock when the lock value reaches this number */
     const FAIL_AFTER         = 30;      /* Try to get a lock for at most this many seconds */
@@ -26,12 +26,12 @@ class Cm_Session_Model_Redis_Session extends Mage_Core_Model_Mysql4_Session
 
     const SESSION_PREFIX     = 'sess:';
 
-    const XML_PATH_HOST            = 'global/session/redis/host';
-    const XML_PATH_PORT            = 'global/session/redis/port';
-    const XML_PATH_TIMEOUT         = 'global/session/redis/timeout';
-    const XML_PATH_DB              = 'global/session/redis/db';
-    const XML_PATH_COMPRESSION_THRESHOLD = 'global/session/redis/compression_threshold';
-    const XML_PATH_COMPRESSION_LIB = 'global/session/redis/compression_lib';
+    const XML_PATH_HOST            = 'global/redis_session/host';
+    const XML_PATH_PORT            = 'global/redis_session/port';
+    const XML_PATH_TIMEOUT         = 'global/redis_session/timeout';
+    const XML_PATH_DB              = 'global/redis_session/db';
+    const XML_PATH_COMPRESSION_THRESHOLD = 'global/redis_session/compression_threshold';
+    const XML_PATH_COMPRESSION_LIB = 'global/redis_session/compression_lib';
 
     /** @var bool */
     protected $_useRedis;

@@ -1,0 +1,8 @@
+<config>
+  <modules>
+    <Cm_RedisSession>
+      <active>true</active>
+      <codePool>community</codePool>
+    </Cm_RedisSession>
+  </modules>
+</config>
