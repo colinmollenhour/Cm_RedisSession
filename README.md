@@ -30,18 +30,19 @@
 
 ```xml
 <config>
-  <global>
+    <global>
+        ...
+        <session_save>db</session_save>
+        <redis_session>
+            <host>127.0.0.1</host>
+            <port>6379</port>
+            <timeout>2.5</timeout>
+            <db>0</db>
+            <compression_threshold>10240</compression_threshold>
+            <compression_lib>gzip</compression_lib>
+        </redis_session>
+        ...
+    </global>
     ...
-    <session_save>db</session_save>
-    <redis_session>
-      <host>127.0.0.1</host>
-      <port>6379</port>
-      <timeout>2.5</timeout>
-      <db>0</db>
-      <compression_threshold>10240</compression_threshold>
-      <compression_lib>gzip</compression_lib>
-    </redis_session>
-    ...
-  </global>
 </config>
 ```
