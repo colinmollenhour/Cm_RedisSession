@@ -36,7 +36,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     /** @var bool */
     protected $_useRedis;
 
-    /** @var Mongo */
+    /** @var Credis_Client */
     protected $_redis;
 
     /** @var int */
@@ -47,20 +47,14 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
     public function __construct()
     {
-        $host = Mage::getConfig()->getNode(self::XML_PATH_HOST) ?: '127.0.0.1';
-        $port = Mage::getConfig()->getNode(self::XML_PATH_PORT) ?: '6379';
-        $timeout = Mage::getConfig()->getNode(self::XML_PATH_TIMEOUT) ?: '2.5';
-        $this->_dbNum = Mage::getConfig()->getNode(self::XML_PATH_DB) ?: 0;
-        $this->_compressionThreshold = Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) ?: 10240;
-        $this->_compressionLib = Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ?: 'gzip';
+        $host = (string)   (Mage::getConfig()->getNode(self::XML_PATH_HOST) ?: '127.0.0.1');
+        $port = (int)      (Mage::getConfig()->getNode(self::XML_PATH_PORT) ?: '6379');
+        $timeout = (float) (Mage::getConfig()->getNode(self::XML_PATH_TIMEOUT) ?: '2.5');
+        $this->_dbNum = (int) (Mage::getConfig()->getNode(self::XML_PATH_DB) ?: 0);
+        $this->_compressionThreshold = (int) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) ?: 10240);
+        $this->_compressionLib = (string) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ?: 'gzip');
         $this->_redis = new Credis_Client($host, $port, $timeout);
         $this->_useRedis = TRUE;
-
-        // Force standalone mode since phpredis currently auto-reconnects, but to the wrong database.
-        // See: https://github.com/nicolasff/phpredis/issues/76
-        if ( $this->_dbNum != 0) {
-            $this->_redis->forceStandalone();
-        }
     }
 
     /**
@@ -73,10 +67,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if( ! $this->_useRedis) return parent::hasConnection();
 
         try {
-            $this->_redis->connected or $this->_redis->connect();
-            if( $this->_dbNum ) {
-              $this->_redis->select($this->_dbNum);
-            }
+            $this->_redis->connect();
             return TRUE;
         }
         catch (Exception $e) {
@@ -102,6 +93,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         // lock for the previous process.
         $sessionId = self::SESSION_PREFIX.$sessionId;
         $tries = 0;
+        if($this->_dbNum) $this->_redis->select($this->_dbNum);
         while(1)
         {
             // Increment lock value for this session and retrieve the new value
@@ -140,16 +132,23 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
         // Do not overwrite the session if it is locked by another pid
         $sessionId = self::SESSION_PREFIX.$sessionId;
-        $pid = $this->_redis->hGet($sessionId, 'pid');
-        if ( ! $pid || $pid == getmypid()) {
-            $this->_redis->hMSet($sessionId, array(
-                'data' => $this->encodeData($sessionData),
-                'lock' => 0,  // Unlock session (next lock attempt will get '1')
-            ));
-            $this->_redis->expire($sessionId, min($this->getLifeTime(), self::MAX_LIFETIME));
+        try {
+            if($this->_dbNum) $this->_redis->select($this->_dbNum);  // Prevent conflicts with other connections?
+            $pid = $this->_redis->hGet($sessionId, 'pid');
+            if ( ! $pid || $pid == getmypid()) {
+                $this->_redis->hMSet($sessionId, array(
+                    'data' => $this->encodeData($sessionData),
+                    'lock' => 0,  // Unlock session (next lock attempt will get '1')
+                ));
+                $this->_redis->expire($sessionId, min($this->getLifeTime(), self::MAX_LIFETIME));
+            }
+            else {
+                throw new Exception('Unable to write session, another process has the lock.');
+            }
         }
-        else {
-            Mage::log('Unable to write session, another process has the lock.');
+        catch(Exception $e) {
+            Mage::logException($e);
+            return FALSE;
         }
         return TRUE;
     }
@@ -164,6 +163,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     {
         if ( ! $this->_useRedis) return parent::destroy($sessionId);
 
+        if($this->_dbNum) $this->_redis->select($this->_dbNum);
         $this->_redis->del(self::SESSION_PREFIX.$sessionId);
         return TRUE;
     }
