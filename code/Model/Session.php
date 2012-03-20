@@ -51,7 +51,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $port = (int)      (Mage::getConfig()->getNode(self::XML_PATH_PORT) ?: '6379');
         $timeout = (float) (Mage::getConfig()->getNode(self::XML_PATH_TIMEOUT) ?: '2.5');
         $this->_dbNum = (int) (Mage::getConfig()->getNode(self::XML_PATH_DB) ?: 0);
-        $this->_compressionThreshold = (int) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) ?: 10240);
+        $this->_compressionThreshold = (int) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) ?: 2048);
         $this->_compressionLib = (string) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ?: 'gzip');
         $this->_redis = new Credis_Client($host, $port, $timeout);
         $this->_useRedis = TRUE;
@@ -186,7 +186,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     protected function encodeData($data)
     {
-        if ($this->_compressionLib != 'none' && strlen($data) >= $this->_compressionThreshold) {
+        if ($this->_compressionThreshold > 0 && $this->_compressionLib != 'none' && strlen($data) >= $this->_compressionThreshold) {
             switch($this->_compressionLib) {
               case 'snappy': $data = snappy_compress($data); break;
               case 'lzf':    $data = lzf_compress($data); break;
