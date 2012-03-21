@@ -58,6 +58,16 @@ one of these if you have root. lzf is easy to install via pecl:
 
     sudo pecl install lzf
 
+_NOTE:_ If using suhosin with session data encryption enabled (default is suhosin.session.encrypt = on), two things:
+
+1. You will probably get very poor compression ratios.
+2. Lzf fails to compress the data in my experience. No idea why..
+
+If any compression lib fails to compress the session data an error will be logged in system.log and the
+session will still be saved without compression. If you have suhosin.session.encrypt on I would either
+recommend disabling it (unless you are on a shared host since Magento does it's own session validation already)
+or disable compression or at least don't use lzf with encryption enabled.
+
 ## Using with [Cm_Cache_Backend_Redis](https://github.com/colinmollenhour/Cm_Cache_Backend_Redis) ##
 
 Using Cm_RedisSession alongside Cm_Cache_Backend_Redis should be no problem at all. The main thing to

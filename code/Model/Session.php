@@ -192,10 +192,11 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
               case 'lzf':    $data = lzf_compress($data); break;
               case 'gzip':   $data = gzcompress($data, 1); break;
             }
-            if( ! $data) {
-                throw new CredisException("Could not compress cache data.");
+            if($data) {
+                $data = ':'.substr($this->_compressionLib,0,2).':'.$data;
+            } else {
+                Mage::log("Could not compress session data using {$this->_compressionLib}.");
             }
-            $data = ':'.substr($this->_compressionLib,0,2).':'.$data;
         }
         return $data;
     }
