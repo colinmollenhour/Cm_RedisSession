@@ -24,7 +24,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const FAIL_AFTER         = 30;      /* Try to get a lock for at most this many seconds */
     const MAX_LIFETIME       = 2592000; /* Redis backend limit */
 
-    const SESSION_PREFIX     = 'sess:';
+    const SESSION_PREFIX     = 'sess_';
 
     const XML_PATH_HOST            = 'global/redis_session/host';
     const XML_PATH_PORT            = 'global/redis_session/port';
@@ -101,11 +101,13 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
             // If we got the lock, update with our pid and reset lock and expiration
             if ($lock == 1 || $lock == self::BREAK_AFTER) {
-                $this->_redis->hMSet($sessionId, array(
-                    'pid' => getmypid(),
-                    'lock' => 1,
-                ));
-                $this->_redis->expire($sessionId, min($this->getLifeTime(), self::MAX_LIFETIME));
+                $this->_redis->pipeline()
+                    ->hMSet($sessionId, array(
+                        'pid' => getmypid(),
+                        'lock' => 1,
+                    ))
+                    ->expire($sessionId, min($this->getLifeTime(), self::MAX_LIFETIME))
+                    ->exec();
                 break;
             }
             if (++$tries >= self::FAIL_AFTER) {
@@ -116,7 +118,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
         // Session can be read even if it was not locked by this pid!
         $sessionData = $this->_redis->hGet($sessionId, 'data');
-        return $sessionData ? $this->decodeData($sessionData) : '';
+        return $sessionData ? $this->_decodeData($sessionData) : '';
     }
 
     /**
@@ -131,16 +133,11 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if ( ! $this->_useRedis) return parent::write($sessionId, $sessionData);
 
         // Do not overwrite the session if it is locked by another pid
-        $sessionId = self::SESSION_PREFIX.$sessionId;
         try {
             if($this->_dbNum) $this->_redis->select($this->_dbNum);  // Prevent conflicts with other connections?
-            $pid = $this->_redis->hGet($sessionId, 'pid');
+            $pid = $this->_redis->hGet(self::SESSION_PREFIX.$sessionId, 'pid');
             if ( ! $pid || $pid == getmypid()) {
-                $this->_redis->hMSet($sessionId, array(
-                    'data' => $this->encodeData($sessionData),
-                    'lock' => 0,  // Unlock session (next lock attempt will get '1')
-                ));
-                $this->_redis->expire($sessionId, min($this->getLifeTime(), self::MAX_LIFETIME));
+                $this->_writeRawSession($sessionId, $sessionData, $this->getLifeTime());
             }
             else {
                 throw new Exception('Unable to write session, another process has the lock.');
@@ -163,8 +160,10 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     {
         if ( ! $this->_useRedis) return parent::destroy($sessionId);
 
+        $this->_redis->pipeline();
         if($this->_dbNum) $this->_redis->select($this->_dbNum);
         $this->_redis->del(self::SESSION_PREFIX.$sessionId);
+        $this->_redis->exec();
         return TRUE;
     }
 
@@ -181,16 +180,18 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     }
 
     /**
+     * Public for testing purposes only.
+     *
      * @param string $data
      * @return string
      */
-    protected function encodeData($data)
+    public function _encodeData($data)
     {
         if ($this->_compressionThreshold > 0 && $this->_compressionLib != 'none' && strlen($data) >= $this->_compressionThreshold) {
             switch($this->_compressionLib) {
-              case 'snappy': $data = snappy_compress($data); break;
-              case 'lzf':    $data = lzf_compress($data); break;
-              case 'gzip':   $data = gzcompress($data, 1); break;
+                case 'snappy': $data = snappy_compress($data); break;
+                case 'lzf':    $data = lzf_compress($data); break;
+                case 'gzip':   $data = gzcompress($data, 1); break;
             }
             if($data) {
                 $data = ':'.substr($this->_compressionLib,0,2).':'.$data;
@@ -202,10 +203,12 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     }
 
     /**
+     * Public for testing purposes only.
+     *
      * @param string $data
      * @return string
      */
-    protected function decodeData($data)
+    public function _decodeData($data)
     {
         switch (substr($data,0,4)) {
             case ':sn:': return snappy_uncompress(substr($data,4));
@@ -213,6 +216,30 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             case ':gz:': return gzuncompress(substr($data,4));
         }
         return $data;
+    }
+
+    /**
+     * Public for testing/import purposes only.
+     *
+     * @param $id
+     * @param $data
+     * @param $lifetime
+     * @throws Exception
+     */
+    public function _writeRawSession($id, $data, $lifetime)
+    {
+        if ( ! $this->_useRedis) {
+            throw new Exception('Not connected to redis!');
+        }
+
+        $this->_redis->pipeline()
+            ->select($this->_dbNum)
+            ->hMSet(self::SESSION_PREFIX.$id, array(
+                'data' => $this->_encodeData($data),
+                'lock' => 0, // 0 so that next lock attempt will get 1
+            ))
+            ->expire(self::SESSION_PREFIX.$id, min($lifetime, self::MAX_LIFETIME))
+            ->exec();
     }
 
 }
