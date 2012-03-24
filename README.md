@@ -8,7 +8,7 @@
 - Compression libraries supported are 'gzip', 'lzf' and 'snappy'. Lzf and Snappy are much faster than gzip.
 - Compression can be enabled, disabled, or reconfigured on the fly with no loss of session data.
 - Expiration is handled by Redis. No garbage collection needed.
-- Logs when sessions are not written due to not having or losing their lock.
+- Logs in system.log when sessions are not written due to not having or losing their lock.
 
 #### Locking Algorithm Properties: ####
 - Only one process may get a write lock on a session
@@ -23,29 +23,59 @@
 
         modman clone git://github.com/colinmollenhour/Cm_RedisSession.git
 
-2. Configure via app/etc/local.xml. There are two steps:
+2. Configure via app/etc/local.xml adding a `global/redis_session` section with the appropriate configuration if needed.
+   See the "Configuration Example" below.
+3. Refresh the config cache to allow the module to be installed by Magento.
+4. Test the configuration by running the migrateSessions.php script in `--test` mode.
 
-    1. Change `global/session_save` value to "db".
-    2. Add a `global/redis_session` section with the appropriate configuration.
+        sudo php .modman/Cm_RedisSession/migrateSessions.php --test
 
+5. Change the `global/session_save` configuration to "db" in app/etc/local.xml. The "db" value is the MySQL handler,
+   but Cm_RedisSession overrides it to avoid modifying core files.
+6. Migrate the old sessions to Redis. See the "Migration" section below for details. The migration script will clear
+   the config cache after migration is complete to activate the config change made in step 5.
+
+
+#### Configuration Example ####
 ```xml
 <config>
     <global>
         ...
         <session_save>db</session_save>
-        <redis_session>
-            <host>127.0.0.1</host>
+        <redis_session>                   <!-- All options seen here are the defaults -->
+            <host>127.0.0.1</host>            <!-- Specify an absolute path if using a unix socket -->
             <port>6379</port>
-            <timeout>2.5</timeout>
+            <timeout>2.5</timeout>            <!-- This is the Redis connection timeout, not the locking timeout -->
             <db>0</db>
-            <compression_threshold>2048</compression_threshold>
-            <compression_lib>gzip</compression_lib>
+            <compression_threshold>2048</compression_threshold>  <!-- Set to 0 to disable compression -->
+            <compression_lib>gzip</compression_lib>              <!-- gzip, lzf or snappy -->
         </redis_session>
         ...
     </global>
     ...
 </config>
 ```
+
+## Migration ##
+
+A script is included to make session migration from files storage to Redis with minimal downtime very easy.
+Use a shell script like this for step 6 of the "Installation" section.
+
+```
+cd /var/www              # Magento installation root
+touch maintenance.flag   # Enter maintenance mode
+sleep 2                  # Allow any running processes to complete
+# This will copy sessions into redis and clear the config cache so local.xml changes will take effect
+sudo php .modman/Cm_RedisSession/migrateSessions.php -y
+rm maintenance.flag      # All done, exit maintenance mode
+```
+
+Depending on your server setup this may require some changes. Old sessions are not deleted so you can run it again
+if there are problems. The migrateSessions.php script has a `--test` mode which you definitely should use _before_
+the final migration. Also, the `--test` mode can be used to compare compression performance and ratios. Last but
+not least, the `--test` mode will tell you roughly how much space your compressed sessions will consume so you know
+roughly how to configure `maxmemory` if needed. All sessions have an expiration so `volatile-lru` or `allkeys-lru`
+are both good `maxmemory-policy` settings.
 
 ## Compression ##
 
@@ -61,7 +91,7 @@ one of these if you have root. lzf is easy to install via pecl:
 _NOTE:_ If using suhosin with session data encryption enabled (default is suhosin.session.encrypt = on), two things:
 
 1. You will probably get very poor compression ratios.
-2. Lzf fails to compress the data in my experience. No idea why..
+2. Lzf fails to compress the encrypted data in my experience. No idea why..
 
 If any compression lib fails to compress the session data an error will be logged in system.log and the
 session will still be saved without compression. If you have suhosin.session.encrypt on I would either

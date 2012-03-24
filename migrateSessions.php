@@ -69,4 +69,5 @@ if ($test) {
   printf("Can migrate %d of %d sessions%s. Compressed from %d to %d (%.5f%% savings) in %.5f seconds\n", $migrated, $i, $reasons, $beforeSize, $afterSize, (($beforeSize-$afterSize)/$beforeSize)*100, $elapsedTime);
 } else {
   printf("Migrated %d of %d session files in %.5f seconds%s\n", $migrated, $i, $elapsedTime, $reasons);
+  Mage::app()->cleanCache(Mage_Core_Model_Config::CACHE_TAG);
 }
