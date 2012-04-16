@@ -20,8 +20,8 @@
  */
 class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 {
-    const BREAK_AFTER        = 20;      /* Break the lock when the lock value reaches this number */
-    const FAIL_AFTER         = 30;      /* Try to get a lock for at most this many seconds */
+    const BREAK_AFTER        = 120;      /* Break the lock when the lock value reaches this number */
+    const FAIL_AFTER         = 180;      /* Try to get a lock for at most this many seconds */
     const MAX_LIFETIME       = 2592000; /* Redis backend limit */
 
     const SESSION_PREFIX     = 'sess_';
