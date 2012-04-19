@@ -11,16 +11,15 @@
  *  - Logs when sessions are not written due to not having or losing their lock.
  *
  * Locking Algorithm Properties:
- *  - Only one process may get a write lock on a session
- *  - A process may lose it's write lock if the break attempts are exceeded
- *  - If a process cannot get a lock on the session or loses it's lock, it will
- *    read the session but will silently fail to write the session.
- *  - The more processes there are requesting a lock on the session, the faster the lock will be broken.
+ *  - Only one process may get a write lock on a session.
+ *  - A process may lose it's lock if another process breaks it, in which case the session will not be written.
+ *  - The lock may be broken after 120 seconds and the process that gets the lock is indeterminate.
  *
  */
 class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 {
-    const BREAK_AFTER        = 120;      /* Break the lock when the lock value reaches this number */
+    const BREAK_AFTER        = 120;      /* Try to break the lock after this many seconds */
+    const BREAK_MODULO       = 5;        /* The lock will only be broken one of of this many tries to prevent multiple processes breaking the same lock */
     const FAIL_AFTER         = 180;      /* Try to get a lock for at most this many seconds */
     const MAX_LIFETIME       = 2592000; /* Redis backend limit */
 
@@ -44,6 +43,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
     protected $_compressionThreshold;
     protected $_compressionLib;
+    protected $_hasLock;
 
     public function __construct()
     {
@@ -100,7 +100,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             $lock = $this->_redis->hIncrBy($sessionId, 'lock', 1);
 
             // If we got the lock, update with our pid and reset lock and expiration
-            if ($lock == 1 || $lock == self::BREAK_AFTER) {
+            if ($lock == 1 || ($tries >= self::BREAK_AFTER && $lock % self::BREAK_MODULO == 0)) {
                 $this->_redis->pipeline()
                     ->hMSet($sessionId, array(
                         'pid' => getmypid(),
@@ -108,9 +108,11 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     ))
                     ->expire($sessionId, min($this->getLifeTime(), self::MAX_LIFETIME))
                     ->exec();
+                $this->_hasLock = TRUE;
                 break;
             }
             if (++$tries >= self::FAIL_AFTER) {
+                $this->_hasLock = FALSE;
                 break;
             }
             sleep(1);
@@ -140,7 +142,11 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 $this->_writeRawSession($sessionId, $sessionData, $this->getLifeTime());
             }
             else {
-                throw new Exception('Unable to write session, another process has the lock.');
+                if ($this->_hasLock) {
+                    throw new Exception('Unable to write session, another process took the lock.');
+                } else {
+                    throw new Exception('Unable to write session, unable to acquire lock.');
+                }
             }
         }
         catch(Exception $e) {
