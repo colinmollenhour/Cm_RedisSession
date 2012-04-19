@@ -44,6 +44,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     protected $_compressionThreshold;
     protected $_compressionLib;
     protected $_hasLock;
+    protected $_sessionWritten; // avoid infinite loops
 
     public function __construct()
     {
@@ -133,6 +134,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     public function write($sessionId, $sessionData)
     {
         if ( ! $this->_useRedis) return parent::write($sessionId, $sessionData);
+        if ($this->_sessionWritten) { return TRUE; }
+        $this->_sessionWritten = TRUE;
 
         // Do not overwrite the session if it is locked by another pid
         try {
@@ -240,11 +243,11 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
         $this->_redis->pipeline()
             ->select($this->_dbNum)
-            ->hMSet(self::SESSION_PREFIX.$id, array(
+            ->hMSet('sess_'.$id, array(
                 'data' => $this->_encodeData($data),
                 'lock' => 0, // 0 so that next lock attempt will get 1
             ))
-            ->expire(self::SESSION_PREFIX.$id, min($lifetime, self::MAX_LIFETIME))
+            ->expire('sess_'.$id, min($lifetime, 2592000))
             ->exec();
     }
 
