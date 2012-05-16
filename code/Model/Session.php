@@ -140,7 +140,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         // Do not overwrite the session if it is locked by another pid
         try {
             if($this->_dbNum) $this->_redis->select($this->_dbNum);  // Prevent conflicts with other connections?
-            $pid = $this->_redis->hGet('self_'.$sessionId, 'pid'); // PHP Fatal errors cause self::SESSION_PREFIX to not work..
+            $pid = $this->_redis->hGet('sess_'.$sessionId, 'pid'); // PHP Fatal errors cause self::SESSION_PREFIX to not work..
             if ( ! $pid || $pid == getmypid()) {
                 $this->_writeRawSession($sessionId, $sessionData, $this->getLifeTime());
             }
