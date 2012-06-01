@@ -25,6 +25,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
     const SESSION_PREFIX     = 'sess_';
 
+    const LOG_FILE           = 'redis_session.log';
+
     const XML_PATH_HOST            = 'global/redis_session/host';
     const XML_PATH_PORT            = 'global/redis_session/port';
     const XML_PATH_TIMEOUT         = 'global/redis_session/timeout';
@@ -146,9 +148,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             }
             else {
                 if ($this->_hasLock) {
-                    throw new Exception('Unable to write session, another process took the lock.');
+                    Mage::log('Unable to write session, another process took the lock: '.$sessionId, Zend_Log::NOTICE, self::LOG_FILE);
                 } else {
-                    throw new Exception('Unable to write session, unable to acquire lock.');
+                    Mage::log('Unable to write session, unable to acquire lock: '.$sessionId, Zend_Log::NOTICE, self::LOG_FILE);
                 }
             }
         }
