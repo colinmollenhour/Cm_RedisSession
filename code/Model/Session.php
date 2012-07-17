@@ -48,6 +48,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     protected $_hasLock;
     protected $_sessionWritten; // avoid infinite loops
 
+    static public $failedLockAttempts = 0; // for debug or informational purposes
+
     public function __construct()
     {
         $host = (string)   (Mage::getConfig()->getNode(self::XML_PATH_HOST) ?: '127.0.0.1');
@@ -120,6 +122,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             }
             sleep(1);
         }
+        self::$failedLockAttempts = $tries;
 
         // Session can be read even if it was not locked by this pid!
         $sessionData = $this->_redis->hGet($sessionId, 'data');
