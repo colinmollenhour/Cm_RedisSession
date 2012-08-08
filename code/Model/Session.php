@@ -78,9 +78,12 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         catch (Exception $e) {
             Mage::logException($e);
             $this->_redis = NULL;
+
+            // Fall-back to MySQL handler. If this fails, the file handler will be used.
             $this->_useRedis = FALSE;
+            parent::__construct();
+            return parent::hasConnection();
         }
-        return FALSE;
     }
 
     /**
