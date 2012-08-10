@@ -9,19 +9,22 @@
  *  - Compression can be enabled, disabled, or reconfigured on the fly with no loss of session data.
  *  - Expiration is handled by Redis. No garbage collection needed.
  *  - Logs when sessions are not written due to not having or losing their lock.
+ *  - Limits the number of concurrent lock requests before a 503 error is returned.
  *
  * Locking Algorithm Properties:
  *  - Only one process may get a write lock on a session.
  *  - A process may lose it's lock if another process breaks it, in which case the session will not be written.
- *  - The lock may be broken after 120 seconds and the process that gets the lock is indeterminate.
+ *  - The lock may be broken after BREAK_AFTER seconds and the process that gets the lock is indeterminate.
+ *  - Only MAX_CONCURRENCY processes may be waiting for a lock for the same session or else a 503 error is returned.
  *
  */
 class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 {
-    const BREAK_AFTER        = 120;      /* Try to break the lock after this many seconds */
+    const MAX_CONCURRENCY    = 5;        /* The maximum number of concurrent lock waiters per session */
+    const BREAK_AFTER        = 300;      /* Try to break the lock after this many seconds */
     const BREAK_MODULO       = 5;        /* The lock will only be broken one of of this many tries to prevent multiple processes breaking the same lock */
-    const FAIL_AFTER         = 180;      /* Try to get a lock for at most this many seconds */
-    const MAX_LIFETIME       = 2592000; /* Redis backend limit */
+    const FAIL_AFTER         = 400;      /* Try to get a lock for at most this many seconds */
+    const MAX_LIFETIME       = 2592000;  /* Redis backend limit */
 
     const SESSION_PREFIX     = 'sess_';
 
@@ -119,6 +122,17 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 $this->_hasLock = TRUE;
                 break;
             }
+            else if ($tries == 0) {
+                $waiting = $this->_redis->hIncrBy($sessionId, 'wait', 1);
+                if ($waiting >= self::MAX_CONCURRENCY) {
+                    Mage::log("Session concurrency exceeded for $sessionId ($waiting)", Zend_Log::NOTICE, self::LOG_FILE);
+                    $this->_redis->hIncrBy($sessionId, 'wait', -1);
+                    header('HTTP/1.1 503 Service Temporarily Unavailable');
+                    header('Status: 503 Too Many Concurrent Requests');
+                    header('Retry-After: 10');
+                    exit;
+                }
+            }
             if (++$tries >= self::FAIL_AFTER) {
                 $this->_hasLock = FALSE;
                 break;
@@ -126,6 +140,11 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             sleep(1);
         }
         self::$failedLockAttempts = $tries;
+
+        // This process is no longer waiting for a lock
+        if ($tries > 0) {
+            $this->_redis->hIncrBy($sessionId, 'wait', -1);
+        }
 
         // Session can be read even if it was not locked by this pid!
         $sessionData = $this->_redis->hGet($sessionId, 'data');
