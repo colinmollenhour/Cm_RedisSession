@@ -3,19 +3,19 @@
 ### A Redis-based session handler for Magento with optimistic locking. ###
 
 #### Features: ####
-- Falls back to MySQL handler if it can't connect to Redis. MySQL handler falls back to file handler.
+- Falls back to mysql handler if it can't connect to redis. Mysql handler falls back to file handler.
 - When a session's data exceeds the compression threshold the session data will be compressed.
 - Compression libraries supported are 'gzip', 'lzf' and 'snappy'. Lzf and Snappy are much faster than gzip.
 - Compression can be enabled, disabled, or reconfigured on the fly with no loss of session data.
 - Expiration is handled by Redis. No garbage collection needed.
-- Logs in system.log when sessions are not written due to not having or losing their lock.
+- Logs when sessions are not written due to not having or losing their lock.
+- Limits the number of concurrent lock requests before a 503 error is returned.
 
 #### Locking Algorithm Properties: ####
-- Only one process may get a write lock on a session
-- A process may lose it's write lock if the break attempts are exceeded
-- If a process cannot get a lock on the session or loses it's lock, it will
-  read the session but will silently fail to write the session.
-- The more processes there are requesting a lock on the session, the faster the lock will be broken.
+- Only one process may get a write lock on a session.
+- A process may lose it's lock if another process breaks it, in which case the session will not be written.
+- The lock may be broken after BREAK_AFTER seconds and the process that gets the lock is indeterminate.
+- Only MAX_CONCURRENCY processes may be waiting for a lock for the same session or else a 503 error is returned.
 
 ## Installation ##
 
