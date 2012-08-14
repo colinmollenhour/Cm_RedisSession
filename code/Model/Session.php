@@ -130,6 +130,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     header('HTTP/1.1 503 Service Temporarily Unavailable');
                     header('Status: 503 Too Many Concurrent Requests');
                     header('Retry-After: 10');
+                    $this->_sessionWritten = TRUE; // Prevent session from getting written
                     exit;
                 }
             }
