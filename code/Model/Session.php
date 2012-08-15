@@ -100,8 +100,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if ( ! $this->_useRedis) return parent::read($sessionId);
 
         // Get lock on session. Increment the "lock" field and if the new value is 1, we have the lock.
-        // If the new value is exactly BREAK_AFTER then we also have the lock and have broken the
-        // lock for the previous process.
+        // If the new value is a multiple of BREAK_MODULO then we are breaking the lock.
         $sessionId = self::SESSION_PREFIX.$sessionId;
         $tries = 0;
         if($this->_dbNum) $this->_redis->select($this->_dbNum);
@@ -127,10 +126,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 if ($waiting >= self::MAX_CONCURRENCY) {
                     Mage::log("Session concurrency exceeded for $sessionId ($waiting)", Zend_Log::NOTICE, self::LOG_FILE);
                     $this->_redis->hIncrBy($sessionId, 'wait', -1);
-                    header('HTTP/1.1 503 Service Temporarily Unavailable');
-                    header('Status: 503 Too Many Concurrent Requests');
-                    header('Retry-After: 10');
                     $this->_sessionWritten = TRUE; // Prevent session from getting written
+                    require_once(Mage::getBaseDir() . DS . 'errors' . DS . '503.php');
                     exit;
                 }
             }
@@ -201,6 +198,17 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if($this->_dbNum) $this->_redis->select($this->_dbNum);
         $this->_redis->del(self::SESSION_PREFIX.$sessionId);
         $this->_redis->exec();
+        return TRUE;
+    }
+
+    /**
+     * Overridden to prevent calling getLifeTime at shutdown
+     *
+     * @return bool
+     */
+    public function close()
+    {
+        if ( ! $this->_useRedis) return parent::close();
         return TRUE;
     }
 
