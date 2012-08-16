@@ -124,9 +124,10 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             else if ($tries == 0) {
                 $waiting = $this->_redis->hIncrBy($sessionId, 'wait', 1);
                 if ($waiting >= self::MAX_CONCURRENCY) {
-                    Mage::log("Session concurrency exceeded for $sessionId ($waiting)", Zend_Log::NOTICE, self::LOG_FILE);
                     $this->_redis->hIncrBy($sessionId, 'wait', -1);
                     $this->_sessionWritten = TRUE; // Prevent session from getting written
+                    $writes = $this->_redis->hGet($sessionId, 'writes');
+                    Mage::log("Session concurrency exceeded for $sessionId ($waiting waiting, $writes total requests)", Zend_Log::NOTICE, self::LOG_FILE);
                     require_once(Mage::getBaseDir() . DS . 'errors' . DS . '503.php');
                     exit;
                 }
@@ -277,13 +278,15 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             throw new Exception('Not connected to redis!');
         }
 
+        $sessionId = 'sess_' . $id;
         $this->_redis->pipeline()
             ->select($this->_dbNum)
-            ->hMSet('sess_'.$id, array(
+            ->hMSet($sessionId, array(
                 'data' => $this->_encodeData($data),
                 'lock' => 0, // 0 so that next lock attempt will get 1
             ))
-            ->expire('sess_'.$id, min($lifetime, 2592000))
+            ->hIncrBy($sessionId, 'writes', 1) // For informational purposes only
+            ->expire($sessionId, min($lifetime, 2592000))
             ->exec();
     }
 
