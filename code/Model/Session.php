@@ -55,12 +55,13 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
     public function __construct()
     {
-        $host = (string)   (Mage::getConfig()->getNode(self::XML_PATH_HOST) ?: '127.0.0.1');
-        $port = (int)      (Mage::getConfig()->getNode(self::XML_PATH_PORT) ?: '6379');
-        $timeout = (float) (Mage::getConfig()->getNode(self::XML_PATH_TIMEOUT) ?: '2.5');
-        $this->_dbNum = (int) (Mage::getConfig()->getNode(self::XML_PATH_DB) ?: 0);
-        $this->_compressionThreshold = (int) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) ?: 2048);
-        $this->_compressionLib = (string) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ?: 'gzip');
+        $host = (string) (Mage::getConfig()->getNode(self::XML_PATH_HOST) ? Mage::getConfig()->getNode(self::XML_PATH_HOST) : '127.0.0.1');
+        $port = (int) (Mage::getConfig()->getNode(self::XML_PATH_PORT) ? Mage::getConfig()->getNode(self::XML_PATH_PORT) : '6379');
+        $timeout = (float) (Mage::getConfig()->getNode(self::XML_PATH_TIMEOUT) ? Mage::getConfig()->getNode(self::XML_PATH_TIMEOUT) : '2.5');
+        $this->_dbNum = (int) (Mage::getConfig()->getNode(self::XML_PATH_DB) ? Mage::getConfig()->getNode(self::XML_PATH_DB) : 0);
+        $this->_compressionThreshold = (int) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) ? Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) : 2048);
+        $this->_compressionLib = (string) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ? Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) : 'gzip');
+
         $this->_redis = new Credis_Client($host, $port, $timeout);
         $this->_useRedis = TRUE;
     }
