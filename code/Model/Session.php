@@ -139,7 +139,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             else {
                 // Detect broken sessions (e.g. caused by fatal errors)
                 if ( $detectZombies
-                  && $lock < $oldLock+$waiting   // lock should be old+waiting, otherwise there must be a dead process
+                  && ( $lock > $oldLock                 // lock shouldn't be less than old lock (another process broke the lock)
+                    && $lock + 1 < $oldLock + $waiting) // lock should be old+waiting, otherwise there must be a dead process
                 ) {
                     // Reset session to fresh state
                     Mage::log(
@@ -149,7 +150,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                         ),
                         Zend_Log::NOTICE, self::LOG_FILE
                     );
-                    $waiting = $this->_redis->hIncrBy($sessionId, 'wait', $lock - $oldLock - $waiting);
+                    $waiting = $this->_redis->hIncrBy($sessionId, 'wait', -1);
                     $detectZombies = FALSE;
                     continue;
                 }
