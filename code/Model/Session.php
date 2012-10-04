@@ -16,6 +16,8 @@
  *  - A process may lose it's lock if another process breaks it, in which case the session will not be written.
  *  - The lock may be broken after BREAK_AFTER seconds and the process that gets the lock is indeterminate.
  *  - Only MAX_CONCURRENCY processes may be waiting for a lock for the same session or else a 503 error is returned.
+ *  - Detects crashed processes to prevent session deadlocks (Linux only).
+ *  - Detects inactive waiting processes to prevent false-positives in concurrency throttling.
  *
  */
 class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
@@ -24,6 +26,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const BREAK_AFTER        = 300;      /* Try to break the lock after this many seconds */
     const BREAK_MODULO       = 5;        /* The lock will only be broken one of of this many tries to prevent multiple processes breaking the same lock */
     const FAIL_AFTER         = 400;      /* Try to get a lock for at most this many seconds */
+    const DETECT_ZOMBIES     = 10;       /* Try to detect zombies every this many seconds */
     const MAX_LIFETIME       = 2592000;  /* Redis backend limit */
 
     const SESSION_PREFIX     = 'sess_';
@@ -102,18 +105,20 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         // Get lock on session. Increment the "lock" field and if the new value is 1, we have the lock.
         // If the new value is a multiple of BREAK_MODULO then we are breaking the lock.
         $sessionId = self::SESSION_PREFIX.$sessionId;
-        $tries = 0;
+        $tries = $waiting = $lock = 0;
+        $detectZombies = FALSE;
         if($this->_dbNum) $this->_redis->select($this->_dbNum);
         while(1)
         {
             // Increment lock value for this session and retrieve the new value
+            $oldLock = $lock;
             $lock = $this->_redis->hIncrBy($sessionId, 'lock', 1);
 
             // If we got the lock, update with our pid and reset lock and expiration
             if ($lock == 1 || ($tries >= self::BREAK_AFTER && $lock % self::BREAK_MODULO == 0)) {
                 $this->_redis->pipeline()
                     ->hMSet($sessionId, array(
-                        'pid' => getmypid(),
+                        'pid' => $this->_getPid(),
                         'lock' => 1,
                     ))
                     ->expire($sessionId, min($this->getLifeTime(), self::MAX_LIFETIME))
@@ -121,22 +126,81 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 $this->_hasLock = TRUE;
                 break;
             }
-            else if ($tries == 0) {
-                $waiting = $this->_redis->hIncrBy($sessionId, 'wait', 1);
+
+            // Otherwise, add to "wait" counter and continue
+            else if ( ! $waiting) {
+                $i = 0;
+                do {
+                    $waiting = $this->_redis->hIncrBy($sessionId, 'wait', 1);
+                } while (++$i < self::MAX_CONCURRENCY && $waiting < 1);
+            }
+
+            // Handle overloaded sessions
+            else {
+                // Detect broken sessions (e.g. caused by fatal errors)
+                if ( $detectZombies
+                  && $lock < $oldLock+$waiting   // lock should be old+waiting, otherwise there must be a dead process
+                ) {
+                    // Reset session to fresh state
+                    Mage::log(
+                        sprintf("Detected zombie waiter for %s (%s waiting)\n  %s (%s - %s)",
+                                $sessionId, $waiting,
+                                Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
+                        ),
+                        Zend_Log::NOTICE, self::LOG_FILE
+                    );
+                    $waiting = $this->_redis->hIncrBy($sessionId, 'wait', $lock - $oldLock - $waiting);
+                    $detectZombies = FALSE;
+                    continue;
+                }
                 if ($waiting >= self::MAX_CONCURRENCY) {
+                    // Overloaded sessions get 503 errors
                     $this->_redis->hIncrBy($sessionId, 'wait', -1);
                     $this->_sessionWritten = TRUE; // Prevent session from getting written
                     $writes = $this->_redis->hGet($sessionId, 'writes');
-                    Mage::log("Session concurrency exceeded for $sessionId ($waiting waiting, $writes total requests)", Zend_Log::NOTICE, self::LOG_FILE);
+                    Mage::log(
+                        sprintf("Session concurrency exceeded for %s (%s waiting, %s total requests)\n  %s (%s - %s)",
+                                $sessionId, $waiting, $writes,
+                                Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
+                        ),
+                        Zend_Log::NOTICE, self::LOG_FILE
+                    );
                     require_once(Mage::getBaseDir() . DS . 'errors' . DS . '503.php');
                     exit;
                 }
             }
-            if (++$tries >= self::FAIL_AFTER) {
+
+            $tries++;
+
+            // Detect dead waiters
+            if ($tries == 1 /* TODO - $tries % 10 == 0 ? */) {
+                $detectZombies = TRUE;
+                usleep(1500000); // 1.5 seconds
+            }
+            // Detect dead processes every 10 seconds
+            if ($tries % self::DETECT_ZOMBIES == 0) {
+                $pid = $this->_redis->hGet($sessionId, 'pid');
+                if ($pid && ! $this->_pidExists($pid)) {
+                    // Allow a live process to get the lock
+                    $this->_redis->hSet($sessionId, 'lock', 0);
+                    Mage::log(
+                        sprintf("Detected zombie process for %s (%s waiting)\n  %s (%s - %s)",
+                                $sessionId, $waiting,
+                                Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
+                        ),
+                        Zend_Log::NOTICE, self::LOG_FILE
+                    );
+                    continue;
+                }
+            }
+            // Timeout
+            if ($tries >= self::FAIL_AFTER) {
                 $this->_hasLock = FALSE;
                 break;
             }
-            sleep(1);
+            else {
+                sleep(1);
+            }
         }
         self::$failedLockAttempts = $tries;
 
@@ -167,7 +231,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         try {
             if($this->_dbNum) $this->_redis->select($this->_dbNum);  // Prevent conflicts with other connections?
             $pid = $this->_redis->hGet('sess_'.$sessionId, 'pid'); // PHP Fatal errors cause self::SESSION_PREFIX to not work..
-            if ( ! $pid || $pid == getmypid()) {
+            if ( ! $pid || $pid == $this->_getPid()) {
                 $this->_writeRawSession($sessionId, $sessionData, $this->getLifeTime());
             }
             else {
@@ -288,6 +352,27 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             ->hIncrBy($sessionId, 'writes', 1) // For informational purposes only
             ->expire($sessionId, min($lifetime, 2592000))
             ->exec();
+    }
+
+    /**
+     * @return string
+     */
+    public function _getPid()
+    {
+      return gethostname().'|'.getmypid();
+    }
+
+    /**
+     * @param $pid
+     * @return bool
+     */
+    public function _pidExists($pid)
+    {
+        list($host,$pid) = explode('|', $pid);
+        if (PHP_OS != 'Linux' || $host != gethostname()) {
+            return TRUE;
+        }
+        return @file_exists('/proc/'.$pid);
     }
 
 }

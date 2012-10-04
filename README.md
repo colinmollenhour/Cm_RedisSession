@@ -10,6 +10,8 @@
 - Expiration is handled by Redis. No garbage collection needed.
 - Logs when sessions are not written due to not having or losing their lock.
 - Limits the number of concurrent lock requests before a 503 error is returned.
+- Detects inactive waiting processes to prevent false-positives in concurrency throttling.
+- Detects crashed processes to prevent session deadlocks (Linux only).
 
 #### Locking Algorithm Properties: ####
 - Only one process may get a write lock on a session.
