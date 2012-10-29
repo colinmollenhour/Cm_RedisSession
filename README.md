@@ -44,10 +44,11 @@
     <global>
         ...
         <session_save>db</session_save>
-        <redis_session>                   <!-- All options seen here are the defaults -->
+        <redis_session>                       <!-- All options seen here are the defaults -->
             <host>127.0.0.1</host>            <!-- Specify an absolute path if using a unix socket -->
             <port>6379</port>
             <timeout>2.5</timeout>            <!-- This is the Redis connection timeout, not the locking timeout -->
+            <persistent></persistent>         <!-- Specify unique string to enable persistent connections. E.g.: sess-db0 -->
             <db>0</db>
             <compression_threshold>2048</compression_threshold>  <!-- Set to 0 to disable compression -->
             <compression_lib>gzip</compression_lib>              <!-- gzip, lzf or snappy -->

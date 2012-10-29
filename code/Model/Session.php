@@ -36,6 +36,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const XML_PATH_HOST            = 'global/redis_session/host';
     const XML_PATH_PORT            = 'global/redis_session/port';
     const XML_PATH_TIMEOUT         = 'global/redis_session/timeout';
+    const XML_PATH_PERSISTENT      = 'global/redis_session/persistent';
     const XML_PATH_DB              = 'global/redis_session/db';
     const XML_PATH_COMPRESSION_THRESHOLD = 'global/redis_session/compression_threshold';
     const XML_PATH_COMPRESSION_LIB = 'global/redis_session/compression_lib';
@@ -61,10 +62,11 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $host = (string)   (Mage::getConfig()->getNode(self::XML_PATH_HOST) ?: '127.0.0.1');
         $port = (int)      (Mage::getConfig()->getNode(self::XML_PATH_PORT) ?: '6379');
         $timeout = (float) (Mage::getConfig()->getNode(self::XML_PATH_TIMEOUT) ?: '2.5');
+        $persistent = (string) (Mage::getConfig()->getNode(self::XML_PATH_PERSISTENT) ?: '');
         $this->_dbNum = (int) (Mage::getConfig()->getNode(self::XML_PATH_DB) ?: 0);
         $this->_compressionThreshold = (int) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) ?: 2048);
         $this->_compressionLib = (string) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ?: 'gzip');
-        $this->_redis = new Credis_Client($host, $port, $timeout);
+        $this->_redis = new Credis_Client($host, $port, $timeout, $persistent);
         $this->_useRedis = TRUE;
     }
 
