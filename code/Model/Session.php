@@ -238,15 +238,21 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 $this->_writeRawSession($sessionId, $sessionData, $this->getLifeTime());
             }
             else {
-                if ($this->_hasLock) {
-                    Mage::log('Unable to write session, another process took the lock: '.$sessionId, Zend_Log::NOTICE, self::LOG_FILE);
-                } else {
-                    Mage::log('Unable to write session, unable to acquire lock: '.$sessionId, Zend_Log::NOTICE, self::LOG_FILE);
+                if (class_exists('Mage', false)) {
+                    if ($this->_hasLock) {
+                        Mage::log('Unable to write session, another process took the lock: '.$sessionId, Zend_Log::NOTICE, self::LOG_FILE);
+                    } else {
+                        Mage::log('Unable to write session, unable to acquire lock: '.$sessionId, Zend_Log::NOTICE, self::LOG_FILE);
+                    }
                 }
             }
         }
         catch(Exception $e) {
-            Mage::logException($e);
+            if (class_exists('Mage', false)) {
+                Mage::logException($e);
+            } else {
+                error_log("$e");
+            }
             return FALSE;
         }
         return TRUE;
