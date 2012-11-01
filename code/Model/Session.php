@@ -22,15 +22,12 @@
  */
 class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 {
-    const MAX_CONCURRENCY    = 5;        /* The maximum number of concurrent lock waiters per session */
     const BREAK_AFTER        = 300;      /* Try to break the lock after this many seconds */
     const BREAK_MODULO       = 5;        /* The lock will only be broken one of of this many tries to prevent multiple processes breaking the same lock */
     const FAIL_AFTER         = 400;      /* Try to get a lock for at most this many seconds */
     const DETECT_ZOMBIES     = 10;       /* Try to detect zombies every this many seconds */
     const MAX_LIFETIME       = 2592000;  /* Redis backend limit */
-
     const SESSION_PREFIX     = 'sess_';
-
     const LOG_FILE           = 'redis_session.log';
 
     const XML_PATH_HOST            = 'global/redis_session/host';
@@ -38,8 +35,14 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const XML_PATH_TIMEOUT         = 'global/redis_session/timeout';
     const XML_PATH_PERSISTENT      = 'global/redis_session/persistent';
     const XML_PATH_DB              = 'global/redis_session/db';
+    const XML_PATH_MAX_CONCURRENCY = 'global/redis_session/max_concurrency';
     const XML_PATH_COMPRESSION_THRESHOLD = 'global/redis_session/compression_threshold';
     const XML_PATH_COMPRESSION_LIB = 'global/redis_session/compression_lib';
+
+    const DEFAULT_TIMEOUT               = 2.5;
+    const DEFAULT_MAX_CONCURRENCY       = 6;        /* The maximum number of concurrent lock waiters per session */
+    const DEFAULT_COMPRESSION_THRESHOLD = 2048;
+    const DEFAULT_COMPRESSION_LIB       = 'gzip';
 
     /** @var bool */
     protected $_useRedis;
@@ -52,6 +55,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
     protected $_compressionThreshold;
     protected $_compressionLib;
+    protected $_maxConcurrency;
     protected $_hasLock;
     protected $_sessionWritten; // avoid infinite loops
 
@@ -61,11 +65,12 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     {
         $host = (string)   (Mage::getConfig()->getNode(self::XML_PATH_HOST) ?: '127.0.0.1');
         $port = (int)      (Mage::getConfig()->getNode(self::XML_PATH_PORT) ?: '6379');
-        $timeout = (float) (Mage::getConfig()->getNode(self::XML_PATH_TIMEOUT) ?: '2.5');
+        $timeout = (float) (Mage::getConfig()->getNode(self::XML_PATH_TIMEOUT) ?: self::DEFAULT_TIMEOUT);
         $persistent = (string) (Mage::getConfig()->getNode(self::XML_PATH_PERSISTENT) ?: '');
         $this->_dbNum = (int) (Mage::getConfig()->getNode(self::XML_PATH_DB) ?: 0);
-        $this->_compressionThreshold = (int) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) ?: 2048);
-        $this->_compressionLib = (string) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ?: 'gzip');
+        $this->_compressionThreshold = (int) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) ?: self::DEFAULT_COMPRESSION_THRESHOLD);
+        $this->_compressionLib = (string) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ?: self::DEFAULT_COMPRESSION_LIB);
+        $this->_maxConcurrency = (int) (Mage::getConfig()->getNode(self::XML_PATH_MAX_CONCURRENCY) ?: self::DEFAULT_MAX_CONCURRENCY);
         $this->_redis = new Credis_Client($host, $port, $timeout, $persistent);
         $this->_useRedis = TRUE;
     }
@@ -134,7 +139,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 $i = 0;
                 do {
                     $waiting = $this->_redis->hIncrBy($sessionId, 'wait', 1);
-                } while (++$i < self::MAX_CONCURRENCY && $waiting < 1);
+                } while (++$i < $this->_maxConcurrency && $waiting < 1);
             }
 
             // Handle overloaded sessions
@@ -156,7 +161,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     $detectZombies = FALSE;
                     continue;
                 }
-                if ($waiting >= self::MAX_CONCURRENCY) {
+                if ($waiting >= $this->_maxConcurrency) {
                     // Overloaded sessions get 503 errors
                     $this->_redis->hIncrBy($sessionId, 'wait', -1);
                     $this->_sessionWritten = TRUE; // Prevent session from getting written
