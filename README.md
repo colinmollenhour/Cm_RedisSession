@@ -12,6 +12,7 @@
 - Limits the number of concurrent lock requests before a 503 error is returned.
 - Detects inactive waiting processes to prevent false-positives in concurrency throttling.
 - Detects crashed processes to prevent session deadlocks (Linux only).
+- Gives shorter session lifetimes to bots and crawlers to reduce wasted resources.
 
 #### Locking Algorithm Properties: ####
 - Only one process may get a write lock on a session.
@@ -54,6 +55,7 @@
             <compression_lib>gzip</compression_lib>              <!-- gzip, lzf or snappy -->
             <log_broken_locks>0</log_broken_locks>               <!-- Useful for debugging fatal errors or extremely slow pages -->
             <max_concurrency>6</max_concurrency>
+            <bot_lifetime>7200</bot_lifetime>                    <!-- Bots get shorter session lifetimes. 0 to disable -->
         </redis_session>
         ...
     </global>

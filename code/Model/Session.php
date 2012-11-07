@@ -30,6 +30,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const SESSION_PREFIX     = 'sess_';
     const LOG_FILE           = 'redis_session.log';
 
+    /* Bots get shorter session lifetimes */
+    const BOT_REGEX          = '/^java|^jakarta|alexa|bot|crawl|facebookexternalhit|feed|google web preview|nagios|postrank|pingdom|slurp|spider|yandex/i';
+
     const XML_PATH_HOST            = 'global/redis_session/host';
     const XML_PATH_PORT            = 'global/redis_session/port';
     const XML_PATH_TIMEOUT         = 'global/redis_session/timeout';
@@ -39,12 +42,14 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const XML_PATH_COMPRESSION_LIB = 'global/redis_session/compression_lib';
     const XML_PATH_LOG_BROKEN_LOCKS = 'global/redis_session/log_broken_locks';
     const XML_PATH_MAX_CONCURRENCY = 'global/redis_session/max_concurrency';
+    const XML_PATH_BOT_LIFETIME    = 'global/redis_session/bot_lifetime';
 
     const DEFAULT_TIMEOUT               = 2.5;
     const DEFAULT_COMPRESSION_THRESHOLD = 2048;
     const DEFAULT_COMPRESSION_LIB       = 'gzip';
     const DEFAULT_LOG_BROKEN_LOCKS      = FALSE;
     const DEFAULT_MAX_CONCURRENCY       = 6;        /* The maximum number of concurrent lock waiters per session */
+    const DEFAULT_BOT_LIFETIME          = 7200;     /* The session lifetime for bots - shorter to prevent bots from wasting backend storage */
 
     /** @var bool */
     protected $_useRedis;
@@ -59,6 +64,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     protected $_compressionLib;
     protected $_logBrokenLocks;
     protected $_maxConcurrency;
+    protected $_botLifetime;
     protected $_hasLock;
     protected $_sessionWritten; // avoid infinite loops
 
@@ -75,6 +81,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_compressionLib = (string) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ?: self::DEFAULT_COMPRESSION_LIB);
         $this->_logBrokenLocks = (bool) (Mage::getConfig()->getNode(self::XML_PATH_LOG_BROKEN_LOCKS) ?: self::DEFAULT_LOG_BROKEN_LOCKS);
         $this->_maxConcurrency = (int) (Mage::getConfig()->getNode(self::XML_PATH_MAX_CONCURRENCY) ?: self::DEFAULT_MAX_CONCURRENCY);
+        $this->_botLifetime = (int) (Mage::getConfig()->getNode(self::XML_PATH_BOT_LIFETIME) ?: self::DEFAULT_BOT_LIFETIME);
         $this->_redis = new Credis_Client($host, $port, $timeout, $persistent);
         $this->_useRedis = TRUE;
     }
@@ -324,6 +331,17 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     }
 
     /**
+     * @return int|mixed
+     */
+    public function getLifeTime()
+    {
+        if ($this->_botLifetime && $this->_isBot()) {
+            return min(parent::getLifeTime(), $this->_botLifetime);
+        }
+        return parent::getLifeTime();
+    }
+
+    /**
      * Public for testing purposes only.
      *
      * @param string $data
@@ -393,7 +411,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function _getPid()
     {
-      return gethostname().'|'.getmypid();
+        return gethostname().'|'.getmypid();
     }
 
     /**
@@ -407,6 +425,15 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             return TRUE;
         }
         return @file_exists('/proc/'.$pid);
+    }
+
+    /**
+     * @return bool
+     */
+    public function _isBot()
+    {
+        $userAgent = empty($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : FALSE;
+        return ! $userAgent || preg_match(self::BOT_REGEX, $userAgent);
     }
 
 }
