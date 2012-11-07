@@ -50,9 +50,10 @@
             <timeout>2.5</timeout>            <!-- This is the Redis connection timeout, not the locking timeout -->
             <persistent></persistent>         <!-- Specify unique string to enable persistent connections. E.g.: sess-db0 -->
             <db>0</db>
-            <max_concurrency>6</max_concurrency>
             <compression_threshold>2048</compression_threshold>  <!-- Set to 0 to disable compression -->
             <compression_lib>gzip</compression_lib>              <!-- gzip, lzf or snappy -->
+            <log_broken_locks>0</log_broken_locks>               <!-- Useful for debugging fatal errors or extremely slow pages -->
+            <max_concurrency>6</max_concurrency>
         </redis_session>
         ...
     </global>

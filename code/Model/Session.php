@@ -35,14 +35,16 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const XML_PATH_TIMEOUT         = 'global/redis_session/timeout';
     const XML_PATH_PERSISTENT      = 'global/redis_session/persistent';
     const XML_PATH_DB              = 'global/redis_session/db';
-    const XML_PATH_MAX_CONCURRENCY = 'global/redis_session/max_concurrency';
     const XML_PATH_COMPRESSION_THRESHOLD = 'global/redis_session/compression_threshold';
     const XML_PATH_COMPRESSION_LIB = 'global/redis_session/compression_lib';
+    const XML_PATH_LOG_BROKEN_LOCKS = 'global/redis_session/log_broken_locks';
+    const XML_PATH_MAX_CONCURRENCY = 'global/redis_session/max_concurrency';
 
     const DEFAULT_TIMEOUT               = 2.5;
-    const DEFAULT_MAX_CONCURRENCY       = 6;        /* The maximum number of concurrent lock waiters per session */
     const DEFAULT_COMPRESSION_THRESHOLD = 2048;
     const DEFAULT_COMPRESSION_LIB       = 'gzip';
+    const DEFAULT_LOG_BROKEN_LOCKS      = FALSE;
+    const DEFAULT_MAX_CONCURRENCY       = 6;        /* The maximum number of concurrent lock waiters per session */
 
     /** @var bool */
     protected $_useRedis;
@@ -55,6 +57,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
     protected $_compressionThreshold;
     protected $_compressionLib;
+    protected $_logBrokenLocks;
     protected $_maxConcurrency;
     protected $_hasLock;
     protected $_sessionWritten; // avoid infinite loops
@@ -70,6 +73,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_dbNum = (int) (Mage::getConfig()->getNode(self::XML_PATH_DB) ?: 0);
         $this->_compressionThreshold = (int) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) ?: self::DEFAULT_COMPRESSION_THRESHOLD);
         $this->_compressionLib = (string) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ?: self::DEFAULT_COMPRESSION_LIB);
+        $this->_logBrokenLocks = (bool) (Mage::getConfig()->getNode(self::XML_PATH_LOG_BROKEN_LOCKS) ?: self::DEFAULT_LOG_BROKEN_LOCKS);
         $this->_maxConcurrency = (int) (Mage::getConfig()->getNode(self::XML_PATH_MAX_CONCURRENCY) ?: self::DEFAULT_MAX_CONCURRENCY);
         $this->_redis = new Credis_Client($host, $port, $timeout, $persistent);
         $this->_useRedis = TRUE;
@@ -123,11 +127,27 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
             // If we got the lock, update with our pid and reset lock and expiration
             if ($lock == 1 || ($tries >= self::BREAK_AFTER && $lock % self::BREAK_MODULO == 0)) {
+                $setData = array(
+                    'pid' => $this->_getPid(),
+                    'lock' => 1,
+                );
+
+                // Save request data in session so if a lock is broken we can know which page it was for debugging
+                if ($this->_logBrokenLocks)
+                {
+                    $setData['req'] = "{$_SERVER['REQUEST_METHOD']} {$_SERVER['SERVER_NAME']}{$_SERVER['REQUEST_URI']}";
+                    if ($lock != 1) {
+                        Mage::log(
+                            sprintf("Broke lock for %s.\nLast request of broken lock: %s",
+                                    $sessionId,
+                                    $this->_redis->hGet($sessionId, 'req')
+                            ),
+                            Zend_Log::NOTICE, self::LOG_FILE
+                        );
+                    }
+                }
                 $this->_redis->pipeline()
-                    ->hMSet($sessionId, array(
-                        'pid' => $this->_getPid(),
-                        'lock' => 1,
-                    ))
+                    ->hMSet($sessionId, $setData)
                     ->expire($sessionId, min($this->getLifeTime(), self::MAX_LIFETIME))
                     ->exec();
                 $this->_hasLock = TRUE;
