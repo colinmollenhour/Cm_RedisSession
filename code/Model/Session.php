@@ -432,7 +432,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function _isBot()
     {
-        $userAgent = empty($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : FALSE;
+        $userAgent = empty($_SERVER['HTTP_USER_AGENT']) ? FALSE : $_SERVER['HTTP_USER_AGENT'];
         return ! $userAgent || preg_match(self::BOT_REGEX, $userAgent);
     }
 
