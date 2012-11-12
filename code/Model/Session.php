@@ -65,6 +65,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     protected $_logBrokenLocks;
     protected $_maxConcurrency;
     protected $_botLifetime;
+    protected $_isBot = FALSE;
     protected $_hasLock;
     protected $_sessionWritten; // avoid infinite loops
 
@@ -82,6 +83,10 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_logBrokenLocks = (bool) (Mage::getConfig()->getNode(self::XML_PATH_LOG_BROKEN_LOCKS) ?: self::DEFAULT_LOG_BROKEN_LOCKS);
         $this->_maxConcurrency = (int) (Mage::getConfig()->getNode(self::XML_PATH_MAX_CONCURRENCY) ?: self::DEFAULT_MAX_CONCURRENCY);
         $this->_botLifetime = (int) (Mage::getConfig()->getNode(self::XML_PATH_BOT_LIFETIME) ?: self::DEFAULT_BOT_LIFETIME);
+        if ($this->_botLifetime) {
+            $userAgent = empty($_SERVER['HTTP_USER_AGENT']) ? FALSE : $_SERVER['HTTP_USER_AGENT'];
+            $this->_isBot = ! $userAgent || preg_match(self::BOT_REGEX, $userAgent);
+        }
         $this->_redis = new Credis_Client($host, $port, $timeout, $persistent);
         $this->_useRedis = TRUE;
     }
@@ -335,7 +340,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function getLifeTime()
     {
-        if ($this->_botLifetime && $this->_isBot()) {
+        if ($this->_isBot) {
             return min(parent::getLifeTime(), $this->_botLifetime);
         }
         return parent::getLifeTime();
@@ -425,15 +430,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             return TRUE;
         }
         return @file_exists('/proc/'.$pid);
-    }
-
-    /**
-     * @return bool
-     */
-    public function _isBot()
-    {
-        $userAgent = empty($_SERVER['HTTP_USER_AGENT']) ? FALSE : $_SERVER['HTTP_USER_AGENT'];
-        return ! $userAgent || preg_match(self::BOT_REGEX, $userAgent);
     }
 
 }
