@@ -147,7 +147,11 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 // Save request data in session so if a lock is broken we can know which page it was for debugging
                 if ($this->_logBrokenLocks)
                 {
-                    $setData['req'] = "{$_SERVER['REQUEST_METHOD']} {$_SERVER['SERVER_NAME']}{$_SERVER['REQUEST_URI']}";
+                    if (empty($_SERVER['REQUEST_METHOD'])) {
+                        $setData['req'] = $_SERVER['SCRIPT_NAME'];
+                    } else {
+                        $setData['req'] = "{$_SERVER['REQUEST_METHOD']} {$_SERVER['SERVER_NAME']}{$_SERVER['REQUEST_URI']}";
+                    }
                     if ($lock != 1) {
                         Mage::log(
                             sprintf("Broke lock for %s.\nLast request of broken lock: %s",
