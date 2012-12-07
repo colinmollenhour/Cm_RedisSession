@@ -181,22 +181,25 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             // Handle overloaded sessions
             else {
                 // Detect broken sessions (e.g. caused by fatal errors)
-                if ( $detectZombies
-                  && ( $lock > $oldLock                 // lock shouldn't be less than old lock (another process broke the lock)
-                    && $lock + 1 < $oldLock + $waiting) // lock should be old+waiting, otherwise there must be a dead process
-                ) {
-                    // Reset session to fresh state
-                    Mage::log(
-                        sprintf("Detected zombie waiter for %s (%s waiting)\n  %s (%s - %s)",
-                                $sessionId, $waiting,
-                                Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
-                        ),
-                        Zend_Log::NOTICE, self::LOG_FILE
-                    );
-                    $waiting = $this->_redis->hIncrBy($sessionId, 'wait', -1);
+                if ($detectZombies) {
                     $detectZombies = FALSE;
-                    continue;
+                    if ( $lock > $oldLock                 // lock shouldn't be less than old lock (another process broke the lock)
+                      && $lock + 1 < $oldLock + $waiting // lock should be old+waiting, otherwise there must be a dead process
+                    ) {
+                        // Reset session to fresh state
+                        Mage::log(
+                            sprintf("Detected zombie waiter for %s (%s waiting)\n  %s (%s - %s)",
+                                    $sessionId, $waiting,
+                                    Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
+                            ),
+                            Zend_Log::NOTICE, self::LOG_FILE
+                        );
+                        $waiting = $this->_redis->hIncrBy($sessionId, 'wait', -1);
+                        continue;
+                    }
                 }
+
+                // Limit concurrent lock waiters to prevent server resource hogging
                 if ($waiting >= $this->_maxConcurrency) {
                     // Overloaded sessions get 503 errors
                     $this->_redis->hIncrBy($sessionId, 'wait', -1);
@@ -228,8 +231,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     // Allow a live process to get the lock
                     $this->_redis->hSet($sessionId, 'lock', 0);
                     Mage::log(
-                        sprintf("Detected zombie process for %s (%s waiting)\n  %s (%s - %s)",
-                                $sessionId, $waiting,
+                        sprintf("Detected zombie process (%s) for %s (%s waiting)\n  %s (%s - %s)",
+                                $pid, $sessionId, $waiting,
                                 Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
                         ),
                         Zend_Log::NOTICE, self::LOG_FILE
