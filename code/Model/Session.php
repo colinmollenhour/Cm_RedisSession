@@ -419,6 +419,26 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     }
 
     /**
+     * @param string $id
+     * @return array
+     * @throws Exception
+     */
+    public function _inspectSession($id)
+    {
+        if ( ! $this->_useRedis) {
+            throw new Exception('Not connected to redis!');
+        }
+
+        $sessionId = 'sess_' . $id;
+        $this->_redis->select($this->_dbNum);
+        $data = $this->_redis->hGetAll($sessionId);
+        if ($data && isset($data['data'])) {
+            $data['data'] = $this->_decodeData($data['data']);
+        }
+        return $data;
+    }
+
+    /**
      * @return string
      */
     public function _getPid()
