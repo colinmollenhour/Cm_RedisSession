@@ -22,9 +22,8 @@
  */
 class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 {
-    const BREAK_AFTER        = 300;      /* Try to break the lock after this many seconds */
     const BREAK_MODULO       = 5;        /* The lock will only be broken one of of this many tries to prevent multiple processes breaking the same lock */
-    const FAIL_AFTER         = 400;      /* Try to get a lock for at most this many seconds */
+    const FAIL_AFTER         = 15;       /* Try to break lock for at most this many seconds */
     const DETECT_ZOMBIES     = 10;       /* Try to detect zombies every this many seconds */
     const MAX_LIFETIME       = 2592000;  /* Redis backend limit */
     const SESSION_PREFIX     = 'sess_';
@@ -42,6 +41,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const XML_PATH_COMPRESSION_LIB = 'global/redis_session/compression_lib';
     const XML_PATH_LOG_BROKEN_LOCKS = 'global/redis_session/log_broken_locks';
     const XML_PATH_MAX_CONCURRENCY = 'global/redis_session/max_concurrency';
+    const XML_PATH_BREAK_AFTER     = 'global/redis_session/break_after_%s';
     const XML_PATH_BOT_LIFETIME    = 'global/redis_session/bot_lifetime';
 
     const DEFAULT_TIMEOUT               = 2.5;
@@ -49,6 +49,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const DEFAULT_COMPRESSION_LIB       = 'gzip';
     const DEFAULT_LOG_BROKEN_LOCKS      = FALSE;
     const DEFAULT_MAX_CONCURRENCY       = 6;        /* The maximum number of concurrent lock waiters per session */
+    const DEFAULT_BREAK_AFTER           = 30;       /* Try to break the lock after this many seconds */
     const DEFAULT_BOT_LIFETIME          = 7200;     /* The session lifetime for bots - shorter to prevent bots from wasting backend storage */
 
     /** @var bool */
@@ -64,6 +65,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     protected $_compressionLib;
     protected $_logBrokenLocks;
     protected $_maxConcurrency;
+    protected $_breakAfter;
     protected $_botLifetime;
     protected $_isBot = FALSE;
     protected $_hasLock;
@@ -82,6 +84,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_compressionLib = (string) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ?: self::DEFAULT_COMPRESSION_LIB);
         $this->_logBrokenLocks = (bool) (Mage::getConfig()->getNode(self::XML_PATH_LOG_BROKEN_LOCKS) ?: self::DEFAULT_LOG_BROKEN_LOCKS);
         $this->_maxConcurrency = (int) (Mage::getConfig()->getNode(self::XML_PATH_MAX_CONCURRENCY) ?: self::DEFAULT_MAX_CONCURRENCY);
+        $this->_breakAfter = (int) (Mage::getConfig()->getNode(sprintf(self::XML_PATH_BREAK_AFTER, session_name())) ?: self::DEFAULT_BREAK_AFTER);
         $this->_botLifetime = (int) (Mage::getConfig()->getNode(self::XML_PATH_BOT_LIFETIME) ?: self::DEFAULT_BOT_LIFETIME);
         if ($this->_botLifetime) {
             $userAgent = empty($_SERVER['HTTP_USER_AGENT']) ? FALSE : $_SERVER['HTTP_USER_AGENT'];
@@ -138,7 +141,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             $lock = $this->_redis->hIncrBy($sessionId, 'lock', 1);
 
             // If we got the lock, update with our pid and reset lock and expiration
-            if ($lock == 1 || ($tries >= self::BREAK_AFTER && $lock % self::BREAK_MODULO == 0)) {
+            if ($lock == 1 || ($tries >= $this->_breakAfter && $lock % self::BREAK_MODULO == 0)) {
                 $setData = array(
                     'pid' => $this->_getPid(),
                     'lock' => 1,
@@ -241,7 +244,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 }
             }
             // Timeout
-            if ($tries >= self::FAIL_AFTER) {
+            if ($tries >= $this->_breakAfter+self::FAIL_AFTER) {
                 $this->_hasLock = FALSE;
                 break;
             }

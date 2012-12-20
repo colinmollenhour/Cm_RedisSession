@@ -55,6 +55,8 @@
             <compression_lib>gzip</compression_lib>              <!-- gzip, lzf or snappy -->
             <log_broken_locks>0</log_broken_locks>               <!-- Useful for debugging fatal errors or extremely slow pages -->
             <max_concurrency>6</max_concurrency>
+            <break_after_frontend>5</break_after_frontend>       <!-- Frontend arguably doesn't need locking as urgently -->
+            <break_after_adminhtml>30</break_after_adminhtml>
             <bot_lifetime>7200</bot_lifetime>                    <!-- Bots get shorter session lifetimes. 0 to disable -->
         </redis_session>
         ...
