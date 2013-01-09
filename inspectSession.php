@@ -11,4 +11,7 @@ $sessionId = $argv[1];
 
 $redisSession = new Cm_RedisSession_Model_Session;
 $sessionData = $redisSession->_inspectSession($sessionId);
+$data = $sessionData['data'];
+unset($sessionData['data']);
 var_dump($sessionData);
+echo "DATA:\n$data\n";
