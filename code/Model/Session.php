@@ -157,8 +157,11 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     }
                     if ($lock != 1) {
                         Mage::log(
-                            sprintf("Broke lock for %s.\nLast request of broken lock: %s",
+                            sprintf("Broke lock for %s.  Tried %s times. Lock: %s, BREAK_MODULO: %s\nLast request of broken lock: %s",
                                     $sessionId,
+                                    $tries,
+                                    $lock,
+                                    self::BREAK_MODULO,
                                     $this->_redis->hGet($sessionId, 'req')
                             ),
                             Zend_Log::NOTICE, self::LOG_FILE
