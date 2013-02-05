@@ -1,4 +1,4 @@
 # Cm_RedisSession
 code                                   app/code/community/Cm/RedisSession
 Cm_RedisSession.xml                    app/etc/modules/Cm_RedisSession.xml
-lib/Credis                             lib/Credis
+lib/*                             lib/
