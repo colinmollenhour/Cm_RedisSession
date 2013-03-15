@@ -48,6 +48,7 @@
         <redis_session>                       <!-- All options seen here are the defaults -->
             <host>127.0.0.1</host>            <!-- Specify an absolute path if using a unix socket -->
             <port>6379</port>
+            <password></password>             <!-- Specify if your redis server requires authentication -->
             <timeout>2.5</timeout>            <!-- This is the Redis connection timeout, not the locking timeout -->
             <persistent></persistent>         <!-- Specify unique string to enable persistent connections. E.g.: sess-db0 -->
             <db>0</db>
