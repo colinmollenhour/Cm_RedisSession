@@ -34,6 +34,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
     const XML_PATH_HOST            = 'global/redis_session/host';
     const XML_PATH_PORT            = 'global/redis_session/port';
+    const XML_PATH_PASS            = 'global/redis_session/password';
     const XML_PATH_TIMEOUT         = 'global/redis_session/timeout';
     const XML_PATH_PERSISTENT      = 'global/redis_session/persistent';
     const XML_PATH_DB              = 'global/redis_session/db';
@@ -77,6 +78,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     {
         $host = (string)   (Mage::getConfig()->getNode(self::XML_PATH_HOST) ?: '127.0.0.1');
         $port = (int)      (Mage::getConfig()->getNode(self::XML_PATH_PORT) ?: '6379');
+        $pass = (string)   (Mage::getConfig()->getNode(self::XML_PATH_PASS) ?: '');
         $timeout = (float) (Mage::getConfig()->getNode(self::XML_PATH_TIMEOUT) ?: self::DEFAULT_TIMEOUT);
         $persistent = (string) (Mage::getConfig()->getNode(self::XML_PATH_PERSISTENT) ?: '');
         $this->_dbNum = (int) (Mage::getConfig()->getNode(self::XML_PATH_DB) ?: 0);
@@ -91,6 +93,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             $this->_isBot = ! $userAgent || preg_match(self::BOT_REGEX, $userAgent);
         }
         $this->_redis = new Credis_Client($host, $port, $timeout, $persistent);
+        if (!empty($pass)) {
+            $this->_redis->auth($pass) or Zend_Cache::throwException('Unable to authenticate with the redis server.');
+        }
         $this->_useRedis = TRUE;
     }
 
