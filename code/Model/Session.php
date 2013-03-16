@@ -54,7 +54,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const DEFAULT_BOT_LIFETIME          = 7200;     /* The session lifetime for bots - shorter to prevent bots from wasting backend storage */
 
     /** @var bool */
-    protected $_useRedis;
+    protected $_useRedis = true;
 
     /** @var Credis_Client */
     protected $_redis;
@@ -71,6 +71,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     protected $_isBot = FALSE;
     protected $_hasLock;
     protected $_sessionWritten; // avoid infinite loops
+    protected $_authPassword;
 
     static public $failedLockAttempts = 0; // for debug or informational purposes
 
@@ -78,7 +79,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     {
         $host = (string)   (Mage::getConfig()->getNode(self::XML_PATH_HOST) ?: '127.0.0.1');
         $port = (int)      (Mage::getConfig()->getNode(self::XML_PATH_PORT) ?: '6379');
-        $pass = (string)   (Mage::getConfig()->getNode(self::XML_PATH_PASS) ?: '');
         $timeout = (float) (Mage::getConfig()->getNode(self::XML_PATH_TIMEOUT) ?: self::DEFAULT_TIMEOUT);
         $persistent = (string) (Mage::getConfig()->getNode(self::XML_PATH_PERSISTENT) ?: '');
         $this->_dbNum = (int) (Mage::getConfig()->getNode(self::XML_PATH_DB) ?: 0);
@@ -88,15 +88,13 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_maxConcurrency = (int) (Mage::getConfig()->getNode(self::XML_PATH_MAX_CONCURRENCY) ?: self::DEFAULT_MAX_CONCURRENCY);
         $this->_breakAfter = (int) (Mage::getConfig()->getNode(sprintf(self::XML_PATH_BREAK_AFTER, session_name())) ?: self::DEFAULT_BREAK_AFTER);
         $this->_botLifetime = (int) (Mage::getConfig()->getNode(self::XML_PATH_BOT_LIFETIME) ?: self::DEFAULT_BOT_LIFETIME);
+        $this->_authPassword = (string) (Mage::getConfig()->getNode(self::XML_PATH_PASS) ?: '');
         if ($this->_botLifetime) {
             $userAgent = empty($_SERVER['HTTP_USER_AGENT']) ? FALSE : $_SERVER['HTTP_USER_AGENT'];
             $this->_isBot = ! $userAgent || preg_match(self::BOT_REGEX, $userAgent);
         }
         $this->_redis = new Credis_Client($host, $port, $timeout, $persistent);
-        if (!empty($pass)) {
-            $this->_redis->auth($pass) or Zend_Cache::throwException('Unable to authenticate with the redis server.');
-        }
-        $this->_useRedis = TRUE;
+        $this->_useRedis = $this->hasConnection();
     }
 
     /**
@@ -110,6 +108,11 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
         try {
             $this->_redis->connect();
+            if ($this->_authPassword) {
+                if (!$this->_redis->auth($this->_authPassword)) {
+                    Zend_Cache::throwException('Unable to authenticate with the redis server.');
+                }
+            }
             return TRUE;
         }
         catch (Exception $e) {
@@ -281,7 +284,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function write($sessionId, $sessionData)
     {
-        if ( ! $this->_useRedis) return parent::write($sessionId, $sessionData);
+        if (!$this->_useRedis || !$this->hasConnection()) return parent::write($sessionId, $sessionData);
         if ($this->_sessionWritten) { return TRUE; }
         $this->_sessionWritten = TRUE;
 
