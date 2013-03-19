@@ -96,6 +96,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if (!empty($pass)) {
             $this->_redis->auth($pass) or Zend_Cache::throwException('Unable to authenticate with the redis server.');
         }
+        $this->_redis->setCloseOnDestruct(FALSE);  // Destructor order cannot be predicted
         $this->_useRedis = TRUE;
     }
 
@@ -338,6 +339,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     public function close()
     {
         if ( ! $this->_useRedis) return parent::close();
+        if ($this->_redis) $this->_redis->close();
         return TRUE;
     }
 
