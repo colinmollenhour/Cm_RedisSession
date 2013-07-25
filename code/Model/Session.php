@@ -40,8 +40,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const XML_PATH_DB              = 'global/redis_session/db';
     const XML_PATH_COMPRESSION_THRESHOLD = 'global/redis_session/compression_threshold';
     const XML_PATH_COMPRESSION_LIB = 'global/redis_session/compression_lib';
-    # replaced by log_level; deprecation recommended
-    const XML_PATH_LOG_BROKEN_LOCKS = 'global/redis_session/log_broken_locks';
     const XML_PATH_LOG_LEVEL       = 'global/redis_session/log_level';
     const XML_PATH_MAX_CONCURRENCY = 'global/redis_session/max_concurrency';
     const XML_PATH_BREAK_AFTER     = 'global/redis_session/break_after_%s';
@@ -50,8 +48,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const DEFAULT_TIMEOUT               = 2.5;
     const DEFAULT_COMPRESSION_THRESHOLD = 2048;
     const DEFAULT_COMPRESSION_LIB       = 'gzip';
-    # replaced by log_level; deprecation recommended
-    const DEFAULT_LOG_BROKEN_LOCKS      = FALSE;
     const DEFAULT_LOG_LEVEL             = 1;
     const DEFAULT_MAX_CONCURRENCY       = 6;        /* The maximum number of concurrent lock waiters per session */
     const DEFAULT_BREAK_AFTER           = 30;       /* Try to break the lock after this many seconds */
@@ -68,8 +64,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
     protected $_compressionThreshold;
     protected $_compressionLib;
-    # replaced by log_level; deprecation recommended
-    protected $_logBrokenLocks;
     protected $_logLevel;
     protected $_maxConcurrency;
     protected $_breakAfter;
@@ -90,8 +84,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_dbNum = (int) (Mage::getConfig()->getNode(self::XML_PATH_DB) ?: 0);
         $this->_compressionThreshold = (int) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) ?: self::DEFAULT_COMPRESSION_THRESHOLD);
         $this->_compressionLib = (string) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ?: self::DEFAULT_COMPRESSION_LIB);
-        # replaced by log_level; deprecation recommended
-        $this->_logBrokenLocks = (bool) (Mage::getConfig()->getNode(self::XML_PATH_LOG_BROKEN_LOCKS) ?: self::DEFAULT_LOG_BROKEN_LOCKS);
         $this->_logLevel = (int) (Mage::getConfig()->getNode(self::XML_PATH_LOG_LEVEL) ?: self::DEFAULT_LOG_LEVEL);
         $this->_maxConcurrency = (int) (Mage::getConfig()->getNode(self::XML_PATH_MAX_CONCURRENCY) ?: self::DEFAULT_MAX_CONCURRENCY);
         $this->_breakAfter = (int) (Mage::getConfig()->getNode(sprintf(self::XML_PATH_BREAK_AFTER, session_name())) ?: self::DEFAULT_BREAK_AFTER);
