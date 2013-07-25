@@ -228,14 +228,14 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     $this->_redis->hIncrBy($sessionId, 'wait', -1);
                     $this->_sessionWritten = TRUE; // Prevent session from getting written
                     $writes = $this->_redis->hGet($sessionId, 'writes');
-                    if ($this->_logLevel >= 5)
+                    if ($this->_logLevel >= 4)
                     {
                         Mage::log(
                             sprintf("Session concurrency exceeded for ID %s (%s waiting, %s total requests)\n  %s (%s - %s)",
                                     $sessionId, $waiting, $writes,
                                     Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
                             ),
-                            Zend_Log::NOTICE, self::LOG_FILE
+                            Zend_Log::WARN, self::LOG_FILE
                         );
                     }
                     require_once(Mage::getBaseDir() . DS . 'errors' . DS . '503.php');
@@ -248,6 +248,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             // Detect dead waiters
             if ($tries == 1 /* TODO - $tries % 10 == 0 ? */) {
                 $detectZombies = TRUE;
+                // TODO: allow configuration of sleep period?
                 usleep(1500000); // 1.5 seconds
             }
             // Detect dead processes every 10 seconds
