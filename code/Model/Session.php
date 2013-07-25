@@ -40,7 +40,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const XML_PATH_DB              = 'global/redis_session/db';
     const XML_PATH_COMPRESSION_THRESHOLD = 'global/redis_session/compression_threshold';
     const XML_PATH_COMPRESSION_LIB = 'global/redis_session/compression_lib';
+    # replaced by log_level; deprecation recommended
     const XML_PATH_LOG_BROKEN_LOCKS = 'global/redis_session/log_broken_locks';
+    const XML_PATH_LOG_LEVEL       = 'global/redis_session/log_level';
     const XML_PATH_MAX_CONCURRENCY = 'global/redis_session/max_concurrency';
     const XML_PATH_BREAK_AFTER     = 'global/redis_session/break_after_%s';
     const XML_PATH_BOT_LIFETIME    = 'global/redis_session/bot_lifetime';
@@ -48,7 +50,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const DEFAULT_TIMEOUT               = 2.5;
     const DEFAULT_COMPRESSION_THRESHOLD = 2048;
     const DEFAULT_COMPRESSION_LIB       = 'gzip';
+    # replaced by log_level; deprecation recommended
     const DEFAULT_LOG_BROKEN_LOCKS      = FALSE;
+    const DEFAULT_LOG_LEVEL             = 1;
     const DEFAULT_MAX_CONCURRENCY       = 6;        /* The maximum number of concurrent lock waiters per session */
     const DEFAULT_BREAK_AFTER           = 30;       /* Try to break the lock after this many seconds */
     const DEFAULT_BOT_LIFETIME          = 7200;     /* The session lifetime for bots - shorter to prevent bots from wasting backend storage */
@@ -64,7 +68,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
     protected $_compressionThreshold;
     protected $_compressionLib;
+    # replaced by log_level; deprecation recommended
     protected $_logBrokenLocks;
+    protected $_logLevel;
     protected $_maxConcurrency;
     protected $_breakAfter;
     protected $_botLifetime;
@@ -84,7 +90,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_dbNum = (int) (Mage::getConfig()->getNode(self::XML_PATH_DB) ?: 0);
         $this->_compressionThreshold = (int) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) ?: self::DEFAULT_COMPRESSION_THRESHOLD);
         $this->_compressionLib = (string) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ?: self::DEFAULT_COMPRESSION_LIB);
+        # replaced by log_level; deprecation recommended
         $this->_logBrokenLocks = (bool) (Mage::getConfig()->getNode(self::XML_PATH_LOG_BROKEN_LOCKS) ?: self::DEFAULT_LOG_BROKEN_LOCKS);
+        $this->_logLevel = (int) (Mage::getConfig()->getNode(self::XML_PATH_LOG_LEVEL) ?: self::DEFAULT_LOG_LEVEL);
         $this->_maxConcurrency = (int) (Mage::getConfig()->getNode(self::XML_PATH_MAX_CONCURRENCY) ?: self::DEFAULT_MAX_CONCURRENCY);
         $this->_breakAfter = (int) (Mage::getConfig()->getNode(sprintf(self::XML_PATH_BREAK_AFTER, session_name())) ?: self::DEFAULT_BREAK_AFTER);
         $this->_botLifetime = (int) (Mage::getConfig()->getNode(self::XML_PATH_BOT_LIFETIME) ?: self::DEFAULT_BOT_LIFETIME);
@@ -154,7 +162,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 );
 
                 // Save request data in session so if a lock is broken we can know which page it was for debugging
-                if ($this->_logBrokenLocks)
+                if ($this->_logLevel >= 4)
                 {
                     if (empty($_SERVER['REQUEST_METHOD'])) {
                         $setData['req'] = $_SERVER['SCRIPT_NAME'];
@@ -163,14 +171,14 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     }
                     if ($lock != 1) {
                         Mage::log(
-                            sprintf("Broke lock for %s.  Tried %s times. Lock: %s, BREAK_MODULO: %s\nLast request of broken lock: %s",
+                            sprintf("Broke lock for ID %s after %s attempts. Lock: %s, BREAK_MODULO: %s\nLast request of broken lock: %s",
                                     $sessionId,
                                     $tries,
                                     $lock,
                                     self::BREAK_MODULO,
                                     $this->_redis->hGet($sessionId, 'req')
                             ),
-                            Zend_Log::NOTICE, self::LOG_FILE
+                            Zend_Log::WARN, self::LOG_FILE
                         );
                     }
                 }
@@ -199,13 +207,16 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                       && $lock + 1 < $oldLock + $waiting // lock should be old+waiting, otherwise there must be a dead process
                     ) {
                         // Reset session to fresh state
-                        Mage::log(
-                            sprintf("Detected zombie waiter for %s (%s waiting)\n  %s (%s - %s)",
-                                    $sessionId, $waiting,
-                                    Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
-                            ),
-                            Zend_Log::NOTICE, self::LOG_FILE
-                        );
+                        if ($this->_logLevel >= 6)
+                        {
+                            Mage::log(
+                                sprintf("Detected zombie waiter for ID %s (%s waiting)\n  %s (%s - %s)",
+                                        $sessionId, $waiting,
+                                        Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
+                                ),
+                                Zend_Log::INFO, self::LOG_FILE
+                            );
+                        }
                         $waiting = $this->_redis->hIncrBy($sessionId, 'wait', -1);
                         continue;
                     }
@@ -217,13 +228,16 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     $this->_redis->hIncrBy($sessionId, 'wait', -1);
                     $this->_sessionWritten = TRUE; // Prevent session from getting written
                     $writes = $this->_redis->hGet($sessionId, 'writes');
-                    Mage::log(
-                        sprintf("Session concurrency exceeded for %s (%s waiting, %s total requests)\n  %s (%s - %s)",
-                                $sessionId, $waiting, $writes,
-                                Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
-                        ),
-                        Zend_Log::NOTICE, self::LOG_FILE
-                    );
+                    if ($this->_logLevel >= 5)
+                    {
+                        Mage::log(
+                            sprintf("Session concurrency exceeded for ID %s (%s waiting, %s total requests)\n  %s (%s - %s)",
+                                    $sessionId, $waiting, $writes,
+                                    Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
+                            ),
+                            Zend_Log::NOTICE, self::LOG_FILE
+                        );
+                    }
                     require_once(Mage::getBaseDir() . DS . 'errors' . DS . '503.php');
                     exit;
                 }
@@ -242,13 +256,18 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 if ($pid && ! $this->_pidExists($pid)) {
                     // Allow a live process to get the lock
                     $this->_redis->hSet($sessionId, 'lock', 0);
-                    Mage::log(
-                        sprintf("Detected zombie process (%s) for %s (%s waiting)\n  %s (%s - %s)",
-                                $pid, $sessionId, $waiting,
-                                Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
-                        ),
-                        Zend_Log::NOTICE, self::LOG_FILE
-                    );
+                    if ($this->_logLevel >= 6)
+                    {
+                        Mage::log(
+                            sprintf("Detected zombie process (%s) for %s (%s waiting)\n  %s (%s - %s)",
+                                    $pid, $sessionId, $waiting,
+                                    Mage::app()->getRequest()->getRequestUri(),
+                                    Mage::app()->getRequest()->getClientIp(),
+                                    Mage::app()->getRequest()->getHeader('User-Agent')
+                            ),
+                            Zend_Log::INFO, self::LOG_FILE
+                        );
+                    }
                     continue;
                 }
             }
@@ -294,11 +313,23 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 $this->_writeRawSession($sessionId, $sessionData, $this->getLifeTime());
             }
             else {
-                if (class_exists('Mage', false)) {
+                if (class_exists('Mage', false) && $this->_logLevel >= 4) {
                     if ($this->_hasLock) {
-                        Mage::log('Unable to write session, another process took the lock: '.$sessionId, Zend_Log::NOTICE, self::LOG_FILE);
+                        Mage::log(
+                            sprintf("Unable to write session, another process took the lock for ID %s",
+                                $sessionId
+                            ),
+                            Zend_Log::WARN,
+                            self::LOG_FILE
+                        );
                     } else {
-                        Mage::log('Unable to write session, unable to acquire lock: '.$sessionId, Zend_Log::NOTICE, self::LOG_FILE);
+                        Mage::log(
+                            sprintf("Unable to write session, unable to acquire lock on ID %s", 
+                                $sessionId
+                            ),
+                            Zend_Log::WARN,
+                            self::LOG_FILE
+                        );
                     }
                 }
             }
@@ -382,8 +413,14 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             }
             if($data) {
                 $data = ':'.substr($this->_compressionLib,0,2).':'.$data;
-            } else {
-                Mage::log("Could not compress session data using {$this->_compressionLib}.");
+            } else if ($this->_logLevel >= 4) {
+                Mage::log(
+                    sprintf("Could not compress session data using %s",
+                        $this->_compressionLib
+                    ),
+                    Zend_Log::WARN,
+                    self::LOG_FILE
+                );
             }
         }
         return $data;
