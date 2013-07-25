@@ -71,6 +71,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     protected $_isBot = FALSE;
     protected $_hasLock;
     protected $_sessionWritten; // avoid infinite loops
+    protected $_timeStart; // re-usable for timing instrumentation
 
     static public $failedLockAttempts = 0; // for debug or informational purposes
 
@@ -130,6 +131,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     ),
                     Zend_Log::DEBUG, self::LOG_FILE
                 );
+                // reset timer
+                $this->_timeStart = microtime(true);
             }
             return TRUE;
         }
@@ -176,6 +179,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 ),
                 Zend_Log::DEBUG, self::LOG_FILE
             );
+            // reset timer
+            $this->_timeStart = microtime(true);
         }
         if($this->_dbNum) $this->_redis->select($this->_dbNum);
         while(1)
@@ -194,6 +199,18 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 // Save request data in session so if a lock is broken we can know which page it was for debugging
                 if ($this->_logLevel >= 6)
                 {
+                    $additionalDetails = sprintf(
+                        "(%s attempts)",
+                        $tries
+                    );
+                    if ($this->_logLevel >= 7)
+                    {
+                        $additionalDetails = sprintf(
+                            "after %.5f seconds ",
+                            (microtime(true) - $this->_timeStart),
+                            $tries
+                        ) . $additionalDetails;
+                    }
                     if (empty($_SERVER['REQUEST_METHOD'])) {
                         $setData['req'] = $_SERVER['SCRIPT_NAME'];
                     } else {
@@ -201,9 +218,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     }
                     if ($lock != 1) {
                         Mage::log(
-                            sprintf("Successfully broke lock for ID %s after %s attempts. Lock: %s, BREAK_MODULO: %s\nLast request of broken lock: %s",
+                            sprintf("Successfully broke lock for ID %s %s. Lock: %s, BREAK_MODULO: %s\nLast request of broken lock: %s",
                                     $sessionId,
-                                    $tries,
+                                    $additionalDetails,
                                     $lock,
                                     self::BREAK_MODULO,
                                     $this->_redis->hGet($sessionId, 'req')
@@ -316,11 +333,23 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             if ($tries >= $this->_breakAfter+self::FAIL_AFTER) {
                 $this->_hasLock = FALSE;
                 if ($this->_logLevel >= 5) {
+                    $additionalDetails = sprintf(
+                        "(%s attempts)",
+                        $tries
+                    );
+                    if ($this->_logLevel >= 7)
+                    {
+                        $additionalDetails = sprintf(
+                            "after %.5f seconds ",
+                            (microtime(true) - $this->_timeStart),
+                            $tries
+                        ) . $additionalDetails;
+                    }
                     Mage::log(
                         sprintf(
-                            "Giving up on read lock for ID %s (%s attempts)",
+                            "Giving up on read lock for ID %s %s",
                             $sessionId,
-                            $tries
+                            $additionalDetails
                         ),
                         Zend_Log::NOTICE, self::LOG_FILE
                     );
@@ -483,7 +512,20 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function _encodeData($data)
     {
-        if ($this->_compressionThreshold > 0 && $this->_compressionLib != 'none' && strlen($data) >= $this->_compressionThreshold) {
+        $originalDataSize = strlen($data);
+        if ($this->_compressionThreshold > 0 && $this->_compressionLib != 'none' && $originalDataSize >= $this->_compressionThreshold) {
+            if ($this->_logLevel >= 7) {
+                Mage::log(
+                    sprintf(
+                        "Compressing %s bytes with %s",
+                        $originalDataSize,
+                        $this->_compressionLib
+                    ),
+                    Zend_Log::DEBUG, self::LOG_FILE
+                );
+                // reset timer
+                $this->_timeStart = microtime(true);
+            }
             switch($this->_compressionLib) {
                 case 'snappy': $data = snappy_compress($data); break;
                 case 'lzf':    $data = lzf_compress($data); break;
@@ -491,6 +533,16 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             }
             if($data) {
                 $data = ':'.substr($this->_compressionLib,0,2).':'.$data;
+                if ($this->_logLevel >= 7) {
+                    Mage::log(
+                        sprintf(
+                            "Data compressed by %.1f percent in %.5f seconds",
+                            ($originalDataSize / strlen($data) * 100),
+                            (microtime(true) - $this->_timeStart)
+                        ),
+                        Zend_Log::DEBUG, self::LOG_FILE
+                    );
+                }
             } else if ($this->_logLevel >= 4) {
                 Mage::log(
                     sprintf("Could not compress session data using %s",
@@ -513,6 +565,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     public function _decodeData($data)
     {
         switch (substr($data,0,4)) {
+            // asking the data which library it uses allows for transparent changes of libraries
             case ':sn:': return snappy_uncompress(substr($data,4));
             case ':lz:': return lzf_decompress(substr($data,4));
             case ':gz:': return gzuncompress(substr($data,4));
