@@ -106,6 +106,16 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         }
         $this->_redis->setCloseOnDestruct(FALSE);  // Destructor order cannot be predicted
         $this->_useRedis = TRUE;
+        if (class_exists('Mage', false) && $this->_logLevel >= 7) {
+            Mage::log(
+                sprintf(
+                    "Cm_RedisSession_Model_Session initialized for connection to %s on port %",
+                    $host,
+                    $port
+                ),
+                Zend_Log::DEBUG, self::LOG_FILE
+            );
+        }
     }
 
     /**
@@ -119,11 +129,30 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
         try {
             $this->_redis->connect();
+            if (class_exists('Mage', false) && $this->_logLevel >= 7) {
+                Mage::log(
+                    sprintf(
+                        "Connected to host %s on port %s",
+                        $host,
+                        $port
+                    ),
+                    Zend_Log::DEBUG, self::LOG_FILE
+                );
+            }
             return TRUE;
         }
         catch (Exception $e) {
             Mage::logException($e);
             $this->_redis = NULL;
+            if ($this->_logLevel >= 0) {
+                Mage::log(
+                    sprintf(
+                        "Unable to connect to Redis; falling back to MySQL handler for ID %s",
+                        $sessionId
+                    ),
+                    Zend_Log::EMERG, self::LOG_FILE
+                );
+            }
 
             // Fall-back to MySQL handler. If this fails, the file handler will be used.
             $this->_useRedis = FALSE;
@@ -147,6 +176,15 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $sessionId = self::SESSION_PREFIX.$sessionId;
         $tries = $waiting = $lock = 0;
         $detectZombies = FALSE;
+        if ($this->_logLevel >= 7) {
+            Mage::log(
+                sprintf(
+                    "Attempting read lock on ID %s",
+                    $sessionId
+                ),
+                Zend_Log::DEBUG, self::LOG_FILE
+            );
+        }
         if($this->_dbNum) $this->_redis->select($this->_dbNum);
         while(1)
         {
@@ -162,7 +200,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 );
 
                 // Save request data in session so if a lock is broken we can know which page it was for debugging
-                if ($this->_logLevel >= 4)
+                if ($this->_logLevel >= 6)
                 {
                     if (empty($_SERVER['REQUEST_METHOD'])) {
                         $setData['req'] = $_SERVER['SCRIPT_NAME'];
@@ -171,14 +209,14 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     }
                     if ($lock != 1) {
                         Mage::log(
-                            sprintf("Broke lock for ID %s after %s attempts. Lock: %s, BREAK_MODULO: %s\nLast request of broken lock: %s",
+                            sprintf("Successfully broke lock for ID %s after %s attempts. Lock: %s, BREAK_MODULO: %s\nLast request of broken lock: %s",
                                     $sessionId,
                                     $tries,
                                     $lock,
                                     self::BREAK_MODULO,
                                     $this->_redis->hGet($sessionId, 'req')
                             ),
-                            Zend_Log::WARN, self::LOG_FILE
+                            Zend_Log::INFO, self::LOG_FILE
                         );
                     }
                 }
@@ -195,6 +233,16 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 $i = 0;
                 do {
                     $waiting = $this->_redis->hIncrBy($sessionId, 'wait', 1);
+                    if ($this->_logLevel >= 7) {
+                        Mage::log(
+                            sprintf(
+                                "Waiting for lock on ID %s (%s waiting)",
+                                $sessionId,
+                                $waiting
+                            ),
+                            Zend_Log::DEBUG, self::LOG_FILE
+                        );
+                    }
                 } while (++$i < $this->_maxConcurrency && $waiting < 1);
             }
 
@@ -275,9 +323,20 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             // Timeout
             if ($tries >= $this->_breakAfter+self::FAIL_AFTER) {
                 $this->_hasLock = FALSE;
+                if ($this->_logLevel >= 5) {
+                    Mage::log(
+                        sprintf(
+                            "Giving up on read lock for ID %s (%s attempts)",
+                            $sessionId,
+                            $tries
+                        ),
+                        Zend_Log::NOTICE, self::LOG_FILE
+                    );
+                }
                 break;
             }
             else {
+                // TODO: configurable wait period?
                 sleep(1);
             }
         }
@@ -311,6 +370,15 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             if($this->_dbNum) $this->_redis->select($this->_dbNum);  // Prevent conflicts with other connections?
             $pid = $this->_redis->hGet('sess_'.$sessionId, 'pid'); // PHP Fatal errors cause self::SESSION_PREFIX to not work..
             if ( ! $pid || $pid == $this->_getPid()) {
+                if ($this->_logLevel >= 7) {
+                    Mage::log(
+                        sprintf(
+                            "Writing to ID %s",
+                            $sessionId
+                        ),
+                        Zend_Log::DEBUG, self::LOG_FILE
+                    );
+                }
                 $this->_writeRawSession($sessionId, $sessionData, $this->getLifeTime());
             }
             else {
@@ -356,6 +424,15 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     {
         if ( ! $this->_useRedis) return parent::destroy($sessionId);
 
+        if ($this->_logLevel >= 7) {
+            Mage::log(
+                sprintf(
+                    "Destroying ID %s",
+                    $sessionId
+                ),
+                Zend_Log::DEBUG, self::LOG_FILE
+            );
+        }
         $this->_redis->pipeline();
         if($this->_dbNum) $this->_redis->select($this->_dbNum);
         $this->_redis->del(self::SESSION_PREFIX.$sessionId);
@@ -371,6 +448,14 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     public function close()
     {
         if ( ! $this->_useRedis) return parent::close();
+        if ($this->_logLevel >= 7) {
+            Mage::log(
+                sprintf(
+                    "Closing connection"
+                ),
+                Zend_Log::DEBUG, self::LOG_FILE
+            );
+        }
         if ($this->_redis) $this->_redis->close();
         return TRUE;
     }
