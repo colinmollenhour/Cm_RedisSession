@@ -112,6 +112,15 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 ),
                 Zend_Log::DEBUG, self::LOG_FILE
             );
+            if ($this->_isBot) {
+                Mage::log(
+                    sprintf(
+                        "Bot detected for user agent: %s",
+                        $userAgent
+                    ),
+                    Zend_Log::DEBUG, self::LOG_FILE
+                );
+            }
         }
     }
 
@@ -127,7 +136,12 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         try {
             $this->_redis->connect();
             if (class_exists('Mage', false) && $this->_logLevel >= 7) {
-                Mage::log("Connected to Redis", Zend_Log::DEBUG, self::LOG_FILE);
+                Mage::log(
+                    sprintf("%s: Connected to Redis",
+                        $this->_getPid()
+                    ),
+                    Zend_Log::DEBUG, self::LOG_FILE
+                );
                 // reset timer
                 $this->_timeStart = microtime(true);
             }
@@ -139,7 +153,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             if ($this->_logLevel >= 0) {
                 Mage::log(
                     sprintf(
-                        "Unable to connect to Redis; falling back to MySQL handler for ID %s",
+                        "%s: Unable to connect to Redis; falling back to MySQL handler for ID %s",
+                        $this->_getPid(),
                         $sessionId
                     ),
                     Zend_Log::EMERG, self::LOG_FILE
@@ -308,6 +323,15 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             }
             // Detect dead processes every 10 seconds
             if ($tries % self::DETECT_ZOMBIES == 0) {
+                if ($this->_logLevel >= 7) {
+                    Mage::log(
+                        sprintf(
+                            "%s: Checking for zombies...",
+                            $this->_getPid()
+                        ),
+                        Zend_Log::DEBUG, self::LOG_FILE
+                    );
+                }
                 $pid = $this->_redis->hGet($sessionId, 'pid');
                 if ($pid && ! $this->_pidExists($pid)) {
                     // Allow a live process to get the lock
@@ -345,7 +369,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     }
                     Mage::log(
                         sprintf(
-                            "Giving up on read lock for ID %s %s",
+                            "%s: Giving up on read lock for ID %s %s",
+                            $this->_getPid(),
                             $sessionId,
                             $additionalDetails
                         ),
@@ -371,7 +396,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if ($this->_logLevel >= 7) {
             Mage::log(
                 sprintf(
-                    "Data read for ID %s",
+                    "%s: Data read for ID %s",
+                    $this->_getPid(),
                     $sessionId
                 ),
                 Zend_Log::DEBUG, self::LOG_FILE
@@ -412,7 +438,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 if ($this->_logLevel >= 7) {
                     Mage::log(
                         sprintf(
-                            "Writing to ID %s",
+                            "%s: Writing to ID %s",
+                            $this->_getPid(),
                             $sessionId
                         ),
                         Zend_Log::DEBUG, self::LOG_FILE
