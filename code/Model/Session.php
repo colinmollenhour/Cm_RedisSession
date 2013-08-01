@@ -334,7 +334,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 if ($this->_logLevel >= 7) {
                     Mage::log(
                         sprintf(
-                            "%s: Checking for zombies after %.5 seconds of waiting...",
+                            "%s: Checking for zombies after %.5f seconds of waiting...",
                             $this->_getPid(),
                             (microtime(true) - $this->_timeStart)
                         ),
@@ -406,7 +406,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if ($this->_logLevel >= 7) {
             Mage::log(
                 sprintf(
-                    "%s: Data read for ID %s after %.5 seconds",
+                    "%s: Data read for ID %s after %.5f seconds",
                     $this->_getPid(),
                     $sessionId,
                     (microtime(true) - $this->_timeStart)
