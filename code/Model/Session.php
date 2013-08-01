@@ -77,9 +77,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
     public function __construct()
     {
-        if ($this->_logLevel >= 7) {
-            $this->_timeStart = (float) microtime(true);
-        }
+        $this->_timeStart = microtime(true);
         $host = (string)   (Mage::getConfig()->getNode(self::XML_PATH_HOST) ?: '127.0.0.1');
         $port = (int)      (Mage::getConfig()->getNode(self::XML_PATH_PORT) ?: '6379');
         $pass = (string)   (Mage::getConfig()->getNode(self::XML_PATH_PASS) ?: '');
@@ -109,7 +107,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     get_class($this),
                     $host,
                     $port,
-                    ((float) microtime(true) - $this->_timeStart)
+                    (microtime(true) - $this->_timeStart)
                 ),
                 Zend_Log::DEBUG, self::LOG_FILE
             );
