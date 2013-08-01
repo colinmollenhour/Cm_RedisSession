@@ -260,11 +260,12 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     if ($this->_logLevel >= 7) {
                         Mage::log(
                             sprintf(
-                                "%s: Waiting for lock on ID %s (%s tries, %s waiting)",
+                                "%s: Waiting for lock on ID %s (%s tries, %s waiting, %.5f seconds elapsed)",
                                 $this->_getPid(),
                                 $sessionId,
                                 $tries,
-                                $waiting
+                                $waiting,
+                                (microtime(true) - $this->_timeStart),
                             ),
                             Zend_Log::DEBUG, self::LOG_FILE
                         );
@@ -284,8 +285,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                         if ($this->_logLevel >= 6)
                         {
                             Mage::log(
-                                sprintf("%s: Detected zombie waiter for ID %s (%s waiting)\n  %s (%s - %s)",
+                                sprintf("%s: Detected zombie waiter after %.5f seconds for ID %s (%s waiting)\n  %s (%s - %s)",
                                     $this->_getPid(),
+                                    (microtime(true) - $this->_timeStart),
                                     $sessionId, $waiting,
                                     Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
                                 ),
@@ -306,7 +308,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     if ($this->_logLevel >= 4)
                     {
                         Mage::log(
-                            sprintf("%s: Session concurrency exceeded for ID %s (%s waiting, %s total requests)\n  %s (%s - %s)",
+                            sprintf("%s: Session concurrency exceeded for ID %s; displaying HTTP 503 (%s waiting, %s total requests)\n  %s (%s - %s)",
                                 $this->_getPid(),
                                 $sessionId, $waiting, $writes,
                                 Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
@@ -332,8 +334,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 if ($this->_logLevel >= 7) {
                     Mage::log(
                         sprintf(
-                            "%s: Checking for zombies...",
-                            $this->_getPid()
+                            "%s: Checking for zombies after %.5 seconds of waiting...",
+                            $this->_getPid(),
+                            (microtime(true) - $this->_timeStart)
                         ),
                         Zend_Log::DEBUG, self::LOG_FILE
                     );
@@ -403,9 +406,10 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if ($this->_logLevel >= 7) {
             Mage::log(
                 sprintf(
-                    "%s: Data read for ID %s",
+                    "%s: Data read for ID %s after %.5 seconds",
                     $this->_getPid(),
-                    $sessionId
+                    $sessionId,
+                    (microtime(true) - $this->_timeStart)
                 ),
                 Zend_Log::DEBUG, self::LOG_FILE
             );
@@ -437,6 +441,18 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             return TRUE;
         }
         $this->_sessionWritten = TRUE;
+        if ($this->_logLevel >= 7) {
+            Mage::log(
+                sprintf(
+                    "%s: Attempting write to ID %s",
+                    $this->_getPid(),
+                    $sessionId
+                ),
+                Zend_Log::DEBUG, self::LOG_FILE
+            );
+            // reset timer
+            $this->_timeStart = microtime(true);
+        }
 
         // Do not overwrite the session if it is locked by another pid
         try {
@@ -446,7 +462,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 if ($this->_logLevel >= 7) {
                     Mage::log(
                         sprintf(
-                            "%s: Writing to ID %s",
+                            "%s: Write lock obtained on ID %s",
                             $this->_getPid(),
                             $sessionId
                         ),
@@ -454,13 +470,25 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     );
                 }
                 $this->_writeRawSession($sessionId, $sessionData, $this->getLifeTime());
+                if ($this->_logLevel >= 7) {
+                    Mage::log(
+                        sprintf(
+                            "%s: Data written to ID %s after %.5f seconds",
+                            $this->_getPid(),
+                            $sessionId,
+                            (microtime(true) - $this->_timeStart)
+                        ),
+                        Zend_Log::DEBUG, self::LOG_FILE
+                    );
+                }
             }
             else {
                 if (class_exists('Mage', false) && $this->_logLevel >= 4) {
                     if ($this->_hasLock) {
                         Mage::log(
-                            sprintf("%s: Unable to write session, another process took the lock for ID %s",
+                            sprintf("%s: Unable to write session after %.5f seconds, another process took the lock for ID %s",
                                 $this->_getPid(),
+                                (microtime(true) - $this->_timeStart),
                                 $sessionId
                             ),
                             Zend_Log::WARN,
@@ -468,8 +496,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                         );
                     } else {
                         Mage::log(
-                            sprintf("%s: Unable to write session, unable to acquire lock on ID %s", 
+                            sprintf("%s: Unable to write session after %.5f seconds, unable to acquire lock on ID %s", 
                                 $this->_getPid(),
+                                (microtime(true) - $this->_timeStart),
                                 $sessionId
                             ),
                             Zend_Log::WARN,
