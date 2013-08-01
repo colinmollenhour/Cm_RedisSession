@@ -238,8 +238,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     if ($this->_logLevel >= 7) {
                         Mage::log(
                             sprintf(
-                                "Waiting for lock on ID %s (%s waiting)",
+                                "Waiting for lock on ID %s (%s tries, %s waiting)",
                                 $sessionId,
+                                $tries,
                                 $waiting
                             ),
                             Zend_Log::DEBUG, self::LOG_FILE
