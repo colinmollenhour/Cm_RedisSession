@@ -123,14 +123,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         try {
             $this->_redis->connect();
             if (class_exists('Mage', false) && $this->_logLevel >= 7) {
-                Mage::log(
-                    sprintf(
-                        "Connected to host %s on port %s",
-                        $host,
-                        $port
-                    ),
-                    Zend_Log::DEBUG, self::LOG_FILE
-                );
+                Mage::log("Connected to Redis", Zend_Log::DEBUG, self::LOG_FILE);
                 // reset timer
                 $this->_timeStart = microtime(true);
             }
