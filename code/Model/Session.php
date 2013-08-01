@@ -265,7 +265,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                                 $sessionId,
                                 $tries,
                                 $waiting,
-                                (microtime(true) - $this->_timeStart),
+                                (microtime(true) - $this->_timeStart)
                             ),
                             Zend_Log::DEBUG, self::LOG_FILE
                         );
