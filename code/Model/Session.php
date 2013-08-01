@@ -103,7 +103,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if (class_exists('Mage', false) && $this->_logLevel >= 7) {
             Mage::log(
                 sprintf(
-                    "%s initialized for connection to %s:%s after %.5f seconds",
+                    "%s: %s initialized for connection to %s:%s after %.5f seconds",
+                    $this->_getPid(),
                     get_class($this),
                     $host,
                     $port,
@@ -367,6 +368,15 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
         // Session can be read even if it was not locked by this pid!
         $sessionData = $this->_redis->hGet($sessionId, 'data');
+        if ($this->_logLevel >= 7) {
+            Mage::log(
+                sprintf(
+                    "Data read for ID %s",
+                    $sessionId
+                ),
+                Zend_Log::DEBUG, self::LOG_FILE
+            );
+        }
         return $sessionData ? $this->_decodeData($sessionData) : '';
     }
 
@@ -380,7 +390,18 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     public function write($sessionId, $sessionData)
     {
         if ( ! $this->_useRedis) return parent::write($sessionId, $sessionData);
-        if ($this->_sessionWritten) { return TRUE; }
+        if ($this->_sessionWritten) {
+            if ($this->_logLevel >= 7) {
+                Mage::log(
+                    sprintf(
+                        "Repeated session write detected; skipping for ID %s",
+                        $sessionId
+                    ),
+                    Zend_Log::DEBUG, self::LOG_FILE
+                );
+            }
+            return TRUE;
+        }
         $this->_sessionWritten = TRUE;
 
         // Do not overwrite the session if it is locked by another pid
@@ -469,7 +490,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if ($this->_logLevel >= 7) {
             Mage::log(
                 sprintf(
-                    "Closing connection"
+                    "%s: Closing connection",
+                    $this->_getPid()
                 ),
                 Zend_Log::DEBUG, self::LOG_FILE
             );
