@@ -100,7 +100,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         }
         $this->_redis->setCloseOnDestruct(FALSE);  // Destructor order cannot be predicted
         $this->_useRedis = TRUE;
-        if (class_exists('Mage', false) && $this->_logLevel >= 7) {
+        if ($this->_logLevel >= 7) {
             Mage::log(
                 sprintf(
                     "%s: %s initialized for connection to %s:%s after %.5f seconds",
@@ -136,7 +136,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
         try {
             $this->_redis->connect();
-            if (class_exists('Mage', false) && $this->_logLevel >= 7) {
+            if ($this->_logLevel >= 7) {
                 Mage::log(
                     sprintf("%s: Connected to Redis",
                         $this->_getPid()
@@ -483,7 +483,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 }
             }
             else {
-                if (class_exists('Mage', false) && $this->_logLevel >= 4) {
+                if ($this->_logLevel >= 4) {
                     if ($this->_hasLock) {
                         Mage::log(
                             sprintf("%s: Unable to write session after %.5f seconds, another process took the lock for ID %s",
