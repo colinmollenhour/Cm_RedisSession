@@ -3,11 +3,11 @@
 ### A Redis-based session handler for Magento with optimistic locking. ###
 
 #### Features: ####
-- Falls back to mysql handler if it can't connect to redis. Mysql handler falls back to file handler.
-- When a session's data exceeds the compression threshold the session data will be compressed.
+- Falls back to mysql handler if it can't connect to Redis. Mysql handler falls back to file handler.
+- When a session's data size exceeds the compression threshold the session data will be compressed.
 - Compression libraries supported are 'gzip', 'lzf' and 'snappy'. Lzf and Snappy are much faster than gzip.
 - Compression can be enabled, disabled, or reconfigured on the fly with no loss of session data.
-- Expiration is handled by Redis. No garbage collection needed.
+- Expiration is handled by Redis; no garbage collection needed.
 - Logs when sessions are not written due to not having or losing their lock.
 - Limits the number of concurrent lock requests before a 503 error is returned.
 - Detects inactive waiting processes to prevent false-positives in concurrency throttling.
@@ -17,8 +17,8 @@
 #### Locking Algorithm Properties: ####
 - Only one process may get a write lock on a session.
 - A process may lose it's lock if another process breaks it, in which case the session will not be written.
-- The lock may be broken after BREAK_AFTER seconds and the process that gets the lock is indeterminate.
-- Only MAX_CONCURRENCY processes may be waiting for a lock for the same session or else a 503 error is returned.
+- The lock may be broken after `BREAK_AFTER` seconds and the process that gets the lock is indeterminate.
+- Only `MAX_CONCURRENCY` processes may be waiting for a lock for the same session or else a 503 error is returned.
 
 ## Installation ##
 
@@ -50,9 +50,9 @@
             <port>6379</port>
             <password></password>             <!-- Specify if your Redis server requires authentication -->
             <timeout>2.5</timeout>            <!-- This is the Redis connection timeout, not the locking timeout -->
-            <persistent></persistent>         <!-- Specify unique string to enable persistent connections. E.g.: sess-db0 -->
-            <db>0</db>
-            <compression_threshold>2048</compression_threshold>  <!-- Set to 0 to disable compression -->
+            <persistent></persistent>         <!-- Specify unique string to enable persistent connections. E.g.: sess-db0; bugs with phpredis and php-fpm are known: https://github.com/nicolasff/phpredis/issues/70 -->
+            <db>0</db>                        <!-- Redis database number; protection from accidental loss is improved by using a unique DB number for sessions -->
+            <compression_threshold>2048</compression_threshold>  <!-- Set to 0 to disable compression (recommended when suhosin.session.encrypt=on); known bug with strings over 64k: https://github.com/colinmollenhour/Cm_Cache_Backend_Redis/issues/18 -->
             <compression_lib>gzip</compression_lib>              <!-- gzip, lzf or snappy -->
             <log_level>1</log_level>               <!-- 0 (emergency: system is unusable), 4 (warning; additional information, recommended), 5 (notice: normal but significant condition), 6 (info: informational messages), 7 (debug: the most information for development/testing) -->
             <max_concurrency>6</max_concurrency>                 <!-- maximum number of processes that can wait for a lock on one session; for large production clusters, set this to at least 10% of the number of PHP processes -->
@@ -98,13 +98,13 @@ one of these if you have root. lzf is easy to install via pecl:
 
     sudo pecl install lzf
 
-_NOTE:_ If using suhosin with session data encryption enabled (default is suhosin.session.encrypt = on), two things:
+_NOTE:_ If using suhosin with session data encryption enabled (default is `suhosin.session.encrypt=on`), two things:
 
 1. You will probably get very poor compression ratios.
-2. Lzf fails to compress the encrypted data in my experience. No idea why..
+2. Lzf fails to compress the encrypted data in my experience. No idea why...
 
-If any compression lib fails to compress the session data an error will be logged in system.log and the
-session will still be saved without compression. If you have suhosin.session.encrypt on I would either
+If any compression lib fails to compress the session data an error will be logged in `system.log` and the
+session will still be saved without compression. If you have `suhosin.session.encrypt=on` I would either
 recommend disabling it (unless you are on a shared host since Magento does it's own session validation already)
 or disable compression or at least don't use lzf with encryption enabled.
 
