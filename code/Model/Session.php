@@ -154,9 +154,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             if ($this->_logLevel >= 0) {
                 Mage::log(
                     sprintf(
-                        "%s: Unable to connect to Redis; falling back to MySQL handler for ID %s",
-                        $this->_getPid(),
-                        $sessionId
+                        "%s: Unable to connect to Redis; falling back to MySQL handler",
+                        $this->_getPid()
                     ),
                     Zend_Log::EMERG, self::LOG_FILE
                 );
