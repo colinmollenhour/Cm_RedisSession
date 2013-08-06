@@ -624,7 +624,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                         sprintf(
                             "%s: Data compressed by %.1f percent in %.5f seconds",
                             $this->_getPid(),
-                            ($originalDataSize / strlen($data) * 100),
+                            ($originalDataSize == 0 ? 0 : (100 - (strlen($data) / $originalDataSize * 100))),
                             (microtime(true) - $this->_timeStart)
                         ),
                         Zend_Log::DEBUG, self::LOG_FILE
