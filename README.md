@@ -13,6 +13,7 @@
 - Detects inactive waiting processes to prevent false-positives in concurrency throttling.
 - Detects crashed processes to prevent session deadlocks (Linux only).
 - Gives shorter session lifetimes to bots and crawlers to reduce wasted resources.
+- Requires PHP >= 5.3. Yes, this is a feature. You're welcome. ;)
 
 #### Locking Algorithm Properties: ####
 - Only one process may get a write lock on a session.
