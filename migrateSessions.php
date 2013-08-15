@@ -1,5 +1,4 @@
-<?php
-isset($argv) or die('CLI only.');
+<?php PHP_SAPI == 'cli' or die('CLI only.');
 
 require 'app/Mage.php';
 Mage::app();
