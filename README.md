@@ -117,3 +117,8 @@ backend would also flush the sessions! So, don't use the same 'db' number for bo
 instance of Redis. However, using a separate Redis instance for each is recommended to make sure that
 one or the other can't run wild consuming space and cause evictions for the other. For example,
 configure two instances each with 100M maxmemory rather than one instance with 200M maxmemory.
+
+## License ##
+
+    @copyright  Copyright (c) 2013 Colin Mollenhour (http://colin.mollenhour.com)
+    This project is licensed under the "New BSD" license (see source).
