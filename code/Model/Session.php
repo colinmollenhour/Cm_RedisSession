@@ -206,6 +206,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     public function read($sessionId)
     {
         if ( ! $this->_useRedis) return parent::read($sessionId);
+        Varien_Profiler::start(__METHOD__);
 
         // Get lock on session. Increment the "lock" field and if the new value is 1, we have the lock.
         // If the new value is a multiple of BREAK_MODULO then we are breaking the lock.
@@ -359,6 +360,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             }
             // Detect dead processes every 10 seconds
             if ($tries % self::DETECT_ZOMBIES == 0) {
+                Varien_Profiler::start(__METHOD__.'-detect-zombies');
                 if ($this->_logLevel >= 7) {
                     Mage::log(
                         sprintf(
@@ -386,8 +388,10 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                             Zend_Log::INFO, self::LOG_FILE
                         );
                     }
+                    Varien_Profiler::stop(__METHOD__.'-detect-zombies');
                     continue;
                 }
+                Varien_Profiler::stop(__METHOD__.'-detect-zombies');
             }
             // Timeout
             if ($tries >= $this->_breakAfter+self::FAIL_AFTER) {
@@ -419,7 +423,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             }
             else {
                 // TODO: configurable wait period?
+                Varien_Profiler::start(__METHOD__.'-wait');
                 sleep(1);
+                Varien_Profiler::stop(__METHOD__.'-wait');
             }
         }
         self::$failedLockAttempts = $tries;
@@ -442,6 +448,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 Zend_Log::DEBUG, self::LOG_FILE
             );
         }
+        Varien_Profiler::stop(__METHOD__);
         return $sessionData ? $this->_decodeData($sessionData) : '';
     }
 
@@ -454,6 +461,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function write($sessionId, $sessionData)
     {
+        Varien_Profiler::start(__METHOD__);
         if ( ! $this->_useRedis) return parent::write($sessionId, $sessionData);
         if ($this->_sessionWritten) {
             if ($this->_logLevel >= 7) {
@@ -466,6 +474,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     Zend_Log::DEBUG, self::LOG_FILE
                 );
             }
+            Varien_Profiler::stop(__METHOD__);
             return TRUE;
         }
         $this->_sessionWritten = TRUE;
@@ -542,8 +551,10 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             } else {
                 error_log("$e");
             }
+            Varien_Profiler::stop(__METHOD__);
             return FALSE;
         }
+        Varien_Profiler::stop(__METHOD__);
         return TRUE;
     }
 
@@ -556,6 +567,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     public function destroy($sessionId)
     {
         if ( ! $this->_useRedis) return parent::destroy($sessionId);
+        Varien_Profiler::start(__METHOD__);
 
         if ($this->_logLevel >= 7) {
             Mage::log(
@@ -571,6 +583,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if($this->_dbNum) $this->_redis->select($this->_dbNum);
         $this->_redis->del(self::SESSION_PREFIX.$sessionId);
         $this->_redis->exec();
+        Varien_Profiler::stop(__METHOD__);
         return TRUE;
     }
 
@@ -581,6 +594,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function close()
     {
+        Varien_Profiler::start(__METHOD__);
         if ( ! $this->_useRedis) return parent::close();
         if ($this->_logLevel >= 7) {
             Mage::log(
@@ -592,6 +606,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             );
         }
         if ($this->_redis) $this->_redis->close();
+        Varien_Profiler::stop(__METHOD__);
         return TRUE;
     }
 
@@ -626,6 +641,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function _encodeData($data)
     {
+        Varien_Profiler::start(__METHOD__);
         $originalDataSize = strlen($data);
         if ($this->_compressionThreshold > 0 && $this->_compressionLib != 'none' && $originalDataSize >= $this->_compressionThreshold) {
             if ($this->_logLevel >= 7) {
@@ -670,6 +686,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 );
             }
         }
+        Varien_Profiler::stop(__METHOD__);
         return $data;
     }
 
@@ -681,12 +698,14 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function _decodeData($data)
     {
+        Varien_Profiler::start(__METHOD__);
         switch (substr($data,0,4)) {
             // asking the data which library it uses allows for transparent changes of libraries
-            case ':sn:': return snappy_uncompress(substr($data,4));
-            case ':lz:': return lzf_decompress(substr($data,4));
-            case ':gz:': return gzuncompress(substr($data,4));
+            case ':sn:': $data = snappy_uncompress(substr($data,4)); break;
+            case ':lz:': $data = lzf_decompress(substr($data,4)); break;
+            case ':gz:': $data = gzuncompress(substr($data,4)); break;
         }
+        Varien_Profiler::stop(__METHOD__);
         return $data;
     }
 
