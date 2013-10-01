@@ -594,7 +594,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function close()
     {
-        Varien_Profiler::start(__METHOD__);
         if ( ! $this->_useRedis) return parent::close();
         if ($this->_logLevel >= 7) {
             Mage::log(
@@ -606,7 +605,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             );
         }
         if ($this->_redis) $this->_redis->close();
-        Varien_Profiler::stop(__METHOD__);
         return TRUE;
     }
 
