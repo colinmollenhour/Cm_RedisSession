@@ -51,7 +51,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 {
-    const BREAK_MODULO       = 5;        /* The lock will only be broken one of of this many tries to prevent multiple processes breaking the same lock */
+    const BREAK_MODULO       = 2;        /* The lock will only be broken one of of this many tries to prevent multiple processes breaking the same lock */
     const FAIL_AFTER         = 15;       /* Try to break lock for at most this many seconds */
     const DETECT_ZOMBIES     = 10;       /* Try to detect zombies every this many seconds */
     const MAX_LIFETIME       = 2592000;  /* Redis backend limit */
