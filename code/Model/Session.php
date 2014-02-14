@@ -73,6 +73,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const XML_PATH_MAX_CONCURRENCY = 'global/redis_session/max_concurrency';
     const XML_PATH_BREAK_AFTER     = 'global/redis_session/break_after_%s';
     const XML_PATH_BOT_LIFETIME    = 'global/redis_session/bot_lifetime';
+    const XML_PATH_DISABLE_LOCKING = 'global/redis_session/disable_locking';
 
     const DEFAULT_TIMEOUT               = 2.5;
     const DEFAULT_COMPRESSION_THRESHOLD = 2048;
@@ -81,6 +82,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const DEFAULT_MAX_CONCURRENCY       = 6;        /* The maximum number of concurrent lock waiters per session */
     const DEFAULT_BREAK_AFTER           = 30;       /* Try to break the lock after this many seconds */
     const DEFAULT_BOT_LIFETIME          = 7200;     /* The session lifetime for bots - shorter to prevent bots from wasting backend storage */
+    const DEFAULT_DISABLE_LOCKING       = FALSE;    /* Session locking is enabled by default */
 
     /** @var bool */
     protected $_useRedis;
@@ -97,6 +99,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     protected $_maxConcurrency;
     protected $_breakAfter;
     protected $_botLifetime;
+    protected $_useLocking;
     protected $_isBot = FALSE;
     protected $_hasLock;
     protected $_sessionWritten; // avoid infinite loops
@@ -123,6 +126,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_maxConcurrency = (int) (Mage::getConfig()->getNode(self::XML_PATH_MAX_CONCURRENCY) ?: self::DEFAULT_MAX_CONCURRENCY);
         $this->_breakAfter = (float) (Mage::getConfig()->getNode(sprintf(self::XML_PATH_BREAK_AFTER, session_name())) ?: self::DEFAULT_BREAK_AFTER);
         $this->_botLifetime = (int) (Mage::getConfig()->getNode(self::XML_PATH_BOT_LIFETIME) ?: self::DEFAULT_BOT_LIFETIME);
+        $this->_useLocking = defined('CM_REDISSESSION_LOCKING_ENABLED')
+                    ? CM_REDISSESSION_LOCKING_ENABLED
+                    : ! (Mage::getConfig()->getNode(self::XML_PATH_DISABLE_LOCKING) ?: self::DEFAULT_DISABLE_LOCKING);
 
         // Use sleep time multiplier so break time is in seconds
         $this->_breakAfter = (int) round((1000000 / self::SLEEP_TIME) * $this->_breakAfter);
@@ -210,7 +216,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if ($this->_dbNum) {
             $this->_redis->select($this->_dbNum);
         }
-        while(1)
+        while ($this->_useLocking)
         {
             // Increment lock value for this session and retrieve the new value
             $oldLock = $lock;
@@ -412,8 +418,11 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         // Do not overwrite the session if it is locked by another pid
         try {
             if($this->_dbNum) $this->_redis->select($this->_dbNum);  // Prevent conflicts with other connections?
-            $pid = $this->_redis->hGet('sess_'.$sessionId, 'pid'); // PHP Fatal errors cause self::SESSION_PREFIX to not work..
-            if ( ! $pid || $pid == $this->_getPid()) {
+
+            if ( ! $this->_useLocking) {
+                $this->_writeRawSession($sessionId, $sessionData, $this->getLifeTime());
+            }
+            else if ( ! ($pid = $this->_redis->hGet('sess_'.$sessionId, 'pid')) || $pid == $this->_getPid()) {
                 if ($this->_logLevel >= Zend_Log::DEBUG) {
                     $this->_log(sprintf("Write lock obtained on ID %s", $sessionId));
                 }

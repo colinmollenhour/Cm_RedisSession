@@ -13,6 +13,7 @@
 - Detects inactive waiting processes to prevent false-positives in concurrency throttling.
 - Detects crashed processes to prevent session deadlocks (Linux only).
 - Gives shorter session lifetimes to bots and crawlers to reduce wasted resources.
+- Locking can be disabled entirely using config or `define('CM_REDISSESSION_LOCKING_ENABLED', FALSE);`.
 - Requires PHP >= 5.3. Yes, this is a feature. You're welcome. ;)
 
 #### Locking Algorithm Properties: ####
@@ -60,6 +61,7 @@
             <break_after_frontend>5</break_after_frontend>       <!-- seconds to wait for a session lock in the frontend; not as critical as admin -->
             <break_after_adminhtml>30</break_after_adminhtml>
             <bot_lifetime>7200</bot_lifetime>                    <!-- Bots get shorter session lifetimes. 0 to disable -->
+            <disable_locking>0</disable_locking>                 <!-- Disable session locking entirely. -->
         </redis_session>
         ...
     </global>
