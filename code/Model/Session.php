@@ -59,7 +59,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const LOG_FILE           = 'redis_session.log';
 
     /* Bots get shorter session lifetimes */
-    const BOT_REGEX          = '/^alexa|^blitz\.io|bot|^browsermob|crawl|^curl|^facebookexternalhit|feed|google web preview|^ia_archiver|^java|jakarta|^load impact|^magespeedtest|monitor|nagios|^pinterest|postrank|slurp|spider|uptime|yandex/i';
+    const BOT_REGEX          = '/^alexa|^blitz\.io|bot|^browsermob|crawl|^curl|^facebookexternalhit|feed|google web preview|^ia_archiver|indexer|^java|jakarta|^libwww-perl|^load impact|^magespeedtest|monitor|^Mozilla$|nagios|^\.net|^pinterest|postrank|slurp|spider|uptime|^wget|yandex/i';
 
     const XML_PATH_HOST            = 'global/redis_session/host';
     const XML_PATH_PORT            = 'global/redis_session/port';
