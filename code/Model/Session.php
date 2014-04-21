@@ -609,13 +609,30 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             throw new Exception('Not connected to redis!');
         }
 
-        $sessionId = 'sess_' . $id;
+        $sessionId = strpos($id, 'sess_') === 0 ? $id : 'sess_' . $id;
         $this->_redis->select($this->_dbNum);
         $data = $this->_redis->hGetAll($sessionId);
         if ($data && isset($data['data'])) {
             $data['data'] = $this->_decodeData($data['data']);
         }
         return $data;
+    }
+
+    /**
+     * Public for testing/inspection purposes only.
+     *
+     * @param $forceStandalone
+     * @return Credis_Client
+     */
+    public function _redisClient($forceStandalone)
+    {
+        if ($forceStandalone) {
+            $this->_redis->forceStandalone();
+        }
+        if ($this->_dbNum) {
+            $this->_redis->select($this->_dbNum);
+        }
+        return $this->_redis;
     }
 
     /**
