@@ -61,19 +61,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     /* Bots get shorter session lifetimes */
     const BOT_REGEX          = '/^alexa|^blitz\.io|bot|^browsermob|crawl|^curl|^facebookexternalhit|feed|google web preview|^ia_archiver|indexer|^java|jakarta|^libwww-perl|^load impact|^magespeedtest|monitor|^Mozilla$|nagios|^\.net|^pinterest|postrank|slurp|spider|uptime|^wget|yandex/i';
 
-    const XML_PATH_HOST            = 'global/redis_session/host';
-    const XML_PATH_PORT            = 'global/redis_session/port';
-    const XML_PATH_PASS            = 'global/redis_session/password';
-    const XML_PATH_TIMEOUT         = 'global/redis_session/timeout';
-    const XML_PATH_PERSISTENT      = 'global/redis_session/persistent';
-    const XML_PATH_DB              = 'global/redis_session/db';
-    const XML_PATH_COMPRESSION_THRESHOLD = 'global/redis_session/compression_threshold';
-    const XML_PATH_COMPRESSION_LIB = 'global/redis_session/compression_lib';
-    const XML_PATH_LOG_LEVEL       = 'global/redis_session/log_level';
-    const XML_PATH_MAX_CONCURRENCY = 'global/redis_session/max_concurrency';
-    const XML_PATH_BREAK_AFTER     = 'global/redis_session/break_after_%s';
-    const XML_PATH_DISABLE_LOCKING = 'global/redis_session/disable_locking';
-
     const DEFAULT_TIMEOUT               = 2.5;
     const DEFAULT_COMPRESSION_THRESHOLD = 2048;
     const DEFAULT_COMPRESSION_LIB       = 'gzip';
@@ -111,25 +98,25 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     public function __construct()
     {
         $this->_timeStart = microtime(true);
-        $this->_config = Mage::getConfig()->getNode('global/redis_session');
+        $this->_config = $config = Mage::getConfig()->getNode('global/redis_session');
 
         // Database config
-        $host = (string)   (Mage::getConfig()->getNode(self::XML_PATH_HOST) ?: '127.0.0.1');
-        $port = (int)      (Mage::getConfig()->getNode(self::XML_PATH_PORT) ?: '6379');
-        $pass = (string)   (Mage::getConfig()->getNode(self::XML_PATH_PASS) ?: '');
-        $timeout = (float) (Mage::getConfig()->getNode(self::XML_PATH_TIMEOUT) ?: self::DEFAULT_TIMEOUT);
-        $persistent = (string) (Mage::getConfig()->getNode(self::XML_PATH_PERSISTENT) ?: '');
-        $this->_dbNum = (int) (Mage::getConfig()->getNode(self::XML_PATH_DB) ?: 0);
+        $host = (string)       ($config->descend('host') ?: '127.0.0.1');
+        $port = (int)          ($config->descend('port') ?: '6379');
+        $pass = (string)       ($config->descend('password') ?: '');
+        $timeout = (float)     ($config->descend('timeout') ?: self::DEFAULT_TIMEOUT);
+        $persistent = (string) ($config->descend('persistent') ?: '');
+        $this->_dbNum = (int)  ($config->descend('db') ?: 0);
 
         // General config
-        $this->_compressionThreshold = (int) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_THRESHOLD) ?: self::DEFAULT_COMPRESSION_THRESHOLD);
-        $this->_compressionLib = (string) (Mage::getConfig()->getNode(self::XML_PATH_COMPRESSION_LIB) ?: self::DEFAULT_COMPRESSION_LIB);
-        $this->_logLevel = (int) (Mage::getConfig()->getNode(self::XML_PATH_LOG_LEVEL) ?: self::DEFAULT_LOG_LEVEL);
-        $this->_maxConcurrency = (int) (Mage::getConfig()->getNode(self::XML_PATH_MAX_CONCURRENCY) ?: self::DEFAULT_MAX_CONCURRENCY);
-        $this->_breakAfter = (float) (Mage::getConfig()->getNode(sprintf(self::XML_PATH_BREAK_AFTER, session_name())) ?: self::DEFAULT_BREAK_AFTER);
+        $this->_compressionThreshold = (int) ($config->descend('compression_threshold') ?: self::DEFAULT_COMPRESSION_THRESHOLD);
+        $this->_compressionLib = (string)    ($config->descend('compression_lib') ?: self::DEFAULT_COMPRESSION_LIB);
+        $this->_logLevel = (int)             ($config->descend('log_level') ?: self::DEFAULT_LOG_LEVEL);
+        $this->_maxConcurrency = (int)       ($config->descend('max_concurrency') ?: self::DEFAULT_MAX_CONCURRENCY);
+        $this->_breakAfter = (float)         ($config->descend('break_after_'.session_name()) ?: self::DEFAULT_BREAK_AFTER);
         $this->_useLocking = defined('CM_REDISSESSION_LOCKING_ENABLED')
                     ? CM_REDISSESSION_LOCKING_ENABLED
-                    : ! (Mage::getConfig()->getNode(self::XML_PATH_DISABLE_LOCKING) ?: self::DEFAULT_DISABLE_LOCKING);
+                    : ! ($config->descend('disable_locking') ?: self::DEFAULT_DISABLE_LOCKING);
 
         // Use sleep time multiplier so break time is in seconds
         $this->_breakAfter = (int) round((1000000 / self::SLEEP_TIME) * $this->_breakAfter);
