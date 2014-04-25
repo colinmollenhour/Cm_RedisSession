@@ -15,7 +15,7 @@ modification, are permitted provided that the following conditions are met:
       documentation and/or other materials provided with the distribution.
     * The name of Colin Mollenhour may not be used to endorse or promote products
       derived from this software without specific prior written permission.
-    * The module name must remain Cm_RedisSession.
+    * Redistributions in any form must not change the Cm_RedisSession namespace.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -72,7 +72,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const XML_PATH_LOG_LEVEL       = 'global/redis_session/log_level';
     const XML_PATH_MAX_CONCURRENCY = 'global/redis_session/max_concurrency';
     const XML_PATH_BREAK_AFTER     = 'global/redis_session/break_after_%s';
-    const XML_PATH_BOT_LIFETIME    = 'global/redis_session/bot_lifetime';
     const XML_PATH_DISABLE_LOCKING = 'global/redis_session/disable_locking';
 
     const DEFAULT_TIMEOUT               = 2.5;
@@ -81,6 +80,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const DEFAULT_LOG_LEVEL             = 1;
     const DEFAULT_MAX_CONCURRENCY       = 6;        /* The maximum number of concurrent lock waiters per session */
     const DEFAULT_BREAK_AFTER           = 30;       /* Try to break the lock after this many seconds */
+    const DEFAULT_FIRST_LIFETIME        = 600;      /* The session lifetime for non-bots on the first write */
+    const DEFAULT_BOT_FIRST_LIFETIME    = 60;       /* The session lifetime for bots on the first write */
     const DEFAULT_BOT_LIFETIME          = 7200;     /* The session lifetime for bots - shorter to prevent bots from wasting backend storage */
     const DEFAULT_DISABLE_LOCKING       = FALSE;    /* Session locking is enabled by default */
 
@@ -93,16 +94,16 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     /** @var int */
     protected $_dbNum;
 
+    protected $_config;
     protected $_compressionThreshold;
     protected $_compressionLib;
     protected $_logLevel;
     protected $_maxConcurrency;
     protected $_breakAfter;
-    protected $_botLifetime;
     protected $_useLocking;
-    protected $_isBot = FALSE;
     protected $_hasLock;
     protected $_sessionWritten; // avoid infinite loops
+    protected $_sessionWrites; // set expire time based on activity
     protected $_timeStart; // re-usable for timing instrumentation
 
     static public $failedLockAttempts = 0; // for debug or informational purposes
@@ -110,6 +111,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     public function __construct()
     {
         $this->_timeStart = microtime(true);
+        $this->_config = Mage::getConfig()->getNode('global/redis_session');
 
         // Database config
         $host = (string)   (Mage::getConfig()->getNode(self::XML_PATH_HOST) ?: '127.0.0.1');
@@ -125,7 +127,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_logLevel = (int) (Mage::getConfig()->getNode(self::XML_PATH_LOG_LEVEL) ?: self::DEFAULT_LOG_LEVEL);
         $this->_maxConcurrency = (int) (Mage::getConfig()->getNode(self::XML_PATH_MAX_CONCURRENCY) ?: self::DEFAULT_MAX_CONCURRENCY);
         $this->_breakAfter = (float) (Mage::getConfig()->getNode(sprintf(self::XML_PATH_BREAK_AFTER, session_name())) ?: self::DEFAULT_BREAK_AFTER);
-        $this->_botLifetime = (int) (Mage::getConfig()->getNode(self::XML_PATH_BOT_LIFETIME) ?: self::DEFAULT_BOT_LIFETIME);
         $this->_useLocking = defined('CM_REDISSESSION_LOCKING_ENABLED')
                     ? CM_REDISSESSION_LOCKING_ENABLED
                     : ! (Mage::getConfig()->getNode(self::XML_PATH_DISABLE_LOCKING) ?: self::DEFAULT_DISABLE_LOCKING);
@@ -133,10 +134,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         // Use sleep time multiplier so break time is in seconds
         $this->_breakAfter = (int) round((1000000 / self::SLEEP_TIME) * $this->_breakAfter);
         $this->_failAfter = (int) round((1000000 / self::SLEEP_TIME) * self::FAIL_AFTER);
-
-        // Detect bots by user agent
-        $userAgent = empty($_SERVER['HTTP_USER_AGENT']) ? FALSE : $_SERVER['HTTP_USER_AGENT'];
-        $this->_isBot = ! $userAgent || preg_match(self::BOT_REGEX, $userAgent);
 
         // Connect and authenticate
         $this->_redis = new Credis_Client($host, $port, $timeout, $persistent);
@@ -149,9 +146,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             $this->_log(sprintf("%s initialized for connection to %s:%s after %.5f seconds",
                 get_class($this), $host, $port, (microtime(true) - $this->_timeStart)
             ));
-            if ($this->_isBot) {
-                $this->_log(sprintf("Bot detected for user agent: %s", $userAgent));
-            }
         }
     }
 
@@ -383,11 +377,12 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         }
 
         // Session can be read even if it was not locked by this pid!
-        $sessionData = $this->_redis->hGet($sessionId, 'data');
+        list($sessionData, $sessionWrites) = $this->_redis->hMGet($sessionId, array('data','writes'));
+        Varien_Profiler::stop(__METHOD__);
         if ($this->_logLevel >= Zend_Log::DEBUG) {
             $this->_log(sprintf("Data read for ID %s after %.5f seconds", $sessionId, (microtime(true) - $this->_timeStart)));
         }
-        Varien_Profiler::stop(__METHOD__);
+        $this->_sessionWrites = (int) $sessionWrites;
         return $sessionData ? $this->_decodeData($sessionData) : '';
     }
 
@@ -512,10 +507,31 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function getLifeTime()
     {
-        if ($this->_isBot) {
-            return min(parent::getLifeTime(), $this->_botLifetime);
+        // Detect bots by user agent
+        $botLifetime = (int) ($this->_config->descend('bot_lifetime') ?: self::DEFAULT_BOT_LIFETIME);
+        if ($botLifetime) {
+            $userAgent = empty($_SERVER['HTTP_USER_AGENT']) ? FALSE : $_SERVER['HTTP_USER_AGENT'];
+            $isBot = ! $userAgent || preg_match(self::BOT_REGEX, $userAgent);
+            if ($isBot) {
+                if ($this->_logLevel > Zend_Log::DEBUG) {
+                    $this->_log(sprintf("Bot detected for user agent: %s", $userAgent));
+                }
+                if ( $this->_sessionWrites === 0
+                  && ($botFirstLifetime = (int) ($this->_config->descend('bot_first_lifetime') ?: self::DEFAULT_BOT_FIRST_LIFETIME))
+                ) {
+                    return $botFirstLifetime;
+                }
+                return min(parent::getLifeTime(), $botLifetime);
+            }
         }
-        return parent::getLifeTime();
+
+        // Use different lifetime for first write
+        $firstLifetime = NULL;
+        if ($this->_sessionWrites === 0) {
+            $firstLifetime = (int) ($this->_config->descend('first_lifetime') ?: self::DEFAULT_FIRST_LIFETIME);
+        }
+
+        return $firstLifetime ?: parent::getLifeTime();
     }
 
     /**
@@ -593,7 +609,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 'data' => $this->_encodeData($data),
                 'lock' => 0, // 0 so that next lock attempt will get 1
             ))
-            ->hIncrBy($sessionId, 'writes', 1) // For informational purposes only
+            ->hIncrBy($sessionId, 'writes', 1)
             ->expire($sessionId, min($lifetime, 2592000))
             ->exec();
     }

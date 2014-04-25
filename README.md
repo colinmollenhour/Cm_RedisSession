@@ -60,7 +60,9 @@
             <max_concurrency>6</max_concurrency>                 <!-- maximum number of processes that can wait for a lock on one session; for large production clusters, set this to at least 10% of the number of PHP processes -->
             <break_after_frontend>5</break_after_frontend>       <!-- seconds to wait for a session lock in the frontend; not as critical as admin -->
             <break_after_adminhtml>30</break_after_adminhtml>
-            <bot_lifetime>7200</bot_lifetime>                    <!-- Bots get shorter session lifetimes. 0 to disable -->
+            <first_lifetime>600</first_lifetime>                 <!-- Lifetime of session for non-bots on the first write. 0 to disable -->
+            <bot_first_lifetime>60</bot_first_lifetime>          <!-- Lifetime of session for bots on the first write. 0 to disable -->
+            <bot_lifetime>7200</bot_lifetime>                    <!-- Lifetime of session for bots on subsequent writes. 0 to disable -->
             <disable_locking>0</disable_locking>                 <!-- Disable session locking entirely. -->
         </redis_session>
         ...
@@ -110,6 +112,14 @@ If any compression lib fails to compress the session data an error will be logge
 session will still be saved without compression. If you have `suhosin.session.encrypt=on` I would either
 recommend disabling it (unless you are on a shared host since Magento does it's own session validation already)
 or disable compression or at least don't use lzf with encryption enabled.
+
+## Bot Detection ##
+
+Bots and crawlers typically do not use cookies which means you may be storing thousands of sessions that
+serve no purpose. Even worse, an attacker could use your limited session storage against you by flooding
+your backend, thereby causing your legitimate sessions to get evicted. However, you don't want to misidentify
+a user as a bot and kill their session unintentionally. This module uses both a regex as well as a
+counter on the number of writes against the session to determine the session lifetime.
 
 ## Using with [Cm_Cache_Backend_Redis](https://github.com/colinmollenhour/Cm_Cache_Backend_Redis) ##
 
