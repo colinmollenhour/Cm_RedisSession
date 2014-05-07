@@ -48,7 +48,8 @@ if( ! $redisSession->hasConnection()) {
 $sessionLifetime = max(Mage::getStoreConfig('admin/security/session_cookie_lifetime'), Mage::getStoreConfig('web/cookie/cookie_lifetime'), 3600);
 
 if ( ! in_array('-y', $argv)) {
-  $redisConnection = Mage::getConfig()->getNode(Cm_RedisSession_Model_Session::XML_PATH_HOST).':'.Mage::getConfig()->getNode(Cm_RedisSession_Model_Session::XML_PATH_PORT).'/'.Mage::getConfig()->getNode(Cm_RedisSession_Model_Session::XML_PATH_DB);
+  $redisConfig = Mage::getConfig()->getNode('global/redis_session');
+  $redisConnection = $redisConfig->descend('host').':'.$redisConfig->descend('port').'/'.$redisConfig->descend('db');
   $input = readline("Migrate sessions from $sessionPath to $redisConnection with $sessionLifetime second lifetime? (y|n) ");
   if($input != 'y') die("Aborted.\n");
 }
