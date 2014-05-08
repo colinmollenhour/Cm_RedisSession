@@ -34,7 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * Features:
  *  - Falls back to mysql handler if it can't connect to redis. Mysql handler falls back to file handler.
  *  - When a session's data exceeds the compression threshold the session data will be compressed.
- *  - Compression libraries supported are 'gzip', 'lzf', 'lz4' (as l4z) and 'snappy'. Lzf and Snappy are much faster than gzip.
+ *  - Compression libraries supported are 'gzip', 'lzf', 'lz4' and 'snappy'.
  *  - Compression can be enabled, disabled, or reconfigured on the fly with no loss of session data.
  *  - Expiration is handled by Redis. No garbage collection needed.
  *  - Logs when sessions are not written due to not having or losing their lock.
@@ -536,14 +536,15 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 $this->_log(sprintf("Compressing %s bytes with %s", $originalDataSize,$this->_compressionLib));
                 $this->_timeStart = microtime(true);
             }
+            $prefix = ':'.substr($this->_compressionLib,0,2).':';
             switch($this->_compressionLib) {
                 case 'snappy': $data = snappy_compress($data); break;
                 case 'lzf':    $data = lzf_compress($data); break;
-                case 'l4z':    $data = lz4_compress($data); break;
+                case 'lz4':    $data = lz4_compress($data); $prefix = ':l4:'; break;
                 case 'gzip':   $data = gzcompress($data, 1); break;
             }
             if($data) {
-                $data = ':'.substr($this->_compressionLib,0,2).':'.$data;
+                $data = $prefix.$data;
                 if ($this->_logLevel >= Zend_Log::DEBUG) {
                     $this->_log(sprintf("Data compressed by %.1f percent in %.5f seconds",
                         ($originalDataSize == 0 ? 0 : (100 - (strlen($data) / $originalDataSize * 100))), (microtime(true) - $this->_timeStart)

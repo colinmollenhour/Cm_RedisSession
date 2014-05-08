@@ -5,7 +5,10 @@
 #### Features: ####
 - Falls back to mysql handler if it can't connect to Redis. Mysql handler falls back to file handler.
 - When a session's data size exceeds the compression threshold the session data will be compressed.
-- Compression libraries supported are 'gzip', 'lzf', 'lz4', and 'snappy'. Lzf and Snappy are much faster than gzip.
+- Compression libraries supported are 'gzip', 'lzf', 'lz4', and 'snappy'.
+-- Gzip is the slowest but offers the best compression ratios.
+-- Lzf can be installed easily via PECL.
+-- Lz4 is supported by HHVM.
 - Compression can be enabled, disabled, or reconfigured on the fly with no loss of session data.
 - Expiration is handled by Redis; no garbage collection needed.
 - Logs when sessions are not written due to not having or losing their lock.
