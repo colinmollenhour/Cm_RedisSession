@@ -34,7 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * Features:
  *  - Falls back to mysql handler if it can't connect to redis. Mysql handler falls back to file handler.
  *  - When a session's data exceeds the compression threshold the session data will be compressed.
- *  - Compression libraries supported are 'gzip', 'lzf' and 'snappy'. Lzf and Snappy are much faster than gzip.
+ *  - Compression libraries supported are 'gzip', 'lzf', 'lz4' (as l4z) and 'snappy'. Lzf and Snappy are much faster than gzip.
  *  - Compression can be enabled, disabled, or reconfigured on the fly with no loss of session data.
  *  - Expiration is handled by Redis. No garbage collection needed.
  *  - Logs when sessions are not written due to not having or losing their lock.
@@ -539,6 +539,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             switch($this->_compressionLib) {
                 case 'snappy': $data = snappy_compress($data); break;
                 case 'lzf':    $data = lzf_compress($data); break;
+                case 'l4z':    $data = lz4_compress($data); break;
                 case 'gzip':   $data = gzcompress($data, 1); break;
             }
             if($data) {
@@ -569,6 +570,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             // asking the data which library it uses allows for transparent changes of libraries
             case ':sn:': $data = snappy_uncompress(substr($data,4)); break;
             case ':lz:': $data = lzf_decompress(substr($data,4)); break;
+            case ':l4:': $data = lz4_uncompress(substr($data,4)); break;
             case ':gz:': $data = gzuncompress(substr($data,4)); break;
         }
         Varien_Profiler::stop(__METHOD__);
