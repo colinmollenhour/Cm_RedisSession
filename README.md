@@ -5,7 +5,7 @@
 #### Features: ####
 - Falls back to mysql handler if it can't connect to Redis. Mysql handler falls back to file handler.
 - When a session's data size exceeds the compression threshold the session data will be compressed.
-- Compression libraries supported are 'gzip', 'lzf' and 'snappy'. Lzf and Snappy are much faster than gzip.
+- Compression libraries supported are 'gzip', 'lzf', 'lz4', and 'snappy'. Lzf and Snappy are much faster than gzip.
 - Compression can be enabled, disabled, or reconfigured on the fly with no loss of session data.
 - Expiration is handled by Redis; no garbage collection needed.
 - Logs when sessions are not written due to not having or losing their lock.
@@ -55,7 +55,7 @@
             <persistent></persistent>         <!-- Specify unique string to enable persistent connections. E.g.: sess-db0; bugs with phpredis and php-fpm are known: https://github.com/nicolasff/phpredis/issues/70 -->
             <db>0</db>                        <!-- Redis database number; protection from accidental loss is improved by using a unique DB number for sessions -->
             <compression_threshold>2048</compression_threshold>  <!-- Set to 0 to disable compression (recommended when suhosin.session.encrypt=on); known bug with strings over 64k: https://github.com/colinmollenhour/Cm_Cache_Backend_Redis/issues/18 -->
-            <compression_lib>gzip</compression_lib>              <!-- gzip, lzf or snappy -->
+            <compression_lib>gzip</compression_lib>              <!-- gzip, lzf, lz4 or snappy -->
             <log_level>1</log_level>               <!-- 0 (emergency: system is unusable), 4 (warning; additional information, recommended), 5 (notice: normal but significant condition), 6 (info: informational messages), 7 (debug: the most information for development/testing) -->
             <max_concurrency>6</max_concurrency>                 <!-- maximum number of processes that can wait for a lock on one session; for large production clusters, set this to at least 10% of the number of PHP processes -->
             <break_after_frontend>5</break_after_frontend>       <!-- seconds to wait for a session lock in the frontend; not as critical as admin -->
