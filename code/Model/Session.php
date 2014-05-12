@@ -503,10 +503,10 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 if ($this->_logLevel > Zend_Log::DEBUG) {
                     $this->_log(sprintf("Bot detected for user agent: %s", $userAgent));
                 }
-                if ( $this->_sessionWrites === 0
+                if ( $this->_sessionWrites <= 1
                   && ($botFirstLifetime = (int) ($this->_config->descend('bot_first_lifetime') ?: self::DEFAULT_BOT_FIRST_LIFETIME))
                 ) {
-                    return $botFirstLifetime;
+                    return $botFirstLifetime * (1+$this->_sessionWrites);
                 }
                 return min(parent::getLifeTime(), $botLifetime);
             }
@@ -514,11 +514,14 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
         // Use different lifetime for first write
         $firstLifetime = NULL;
-        if ($this->_sessionWrites === 0) {
+        if ($this->_sessionWrites <= 1) {
             $firstLifetime = (int) ($this->_config->descend('first_lifetime') ?: self::DEFAULT_FIRST_LIFETIME);
+            if ($firstLifetime) {
+                return $firstLifetime * (1+$this->_sessionWrites);
+            }
         }
 
-        return $firstLifetime ?: parent::getLifeTime();
+        return parent::getLifeTime();
     }
 
     /**
