@@ -39,6 +39,11 @@ if (empty($argv[2])) {
     die('Must specify group-by key. E.g. http_user_agent, remote_addr, http_secure, http_host, request_uri, is_new_visitor');
 }
 $groupBy = $argv[2];
+if (empty($argv[3])) {
+    die('Must specify sort-by parameter. writes or count');
+}
+$sortBy = $argv[3];
+
 $redisSession = new Cm_RedisSession_Model_Session;
 $cursor = 0;
 
@@ -86,11 +91,12 @@ while(1) {
     }
 }
 
-$avg = array();
+$sortKeys = array();
 foreach ($groupedData as $key => &$stats) {
-    $stats['avg'] = $avg[$key] = $stats['writes'] / $stats['count'];
+    $stats['avg'] = $stats['writes'] / $stats['count'];
+    $sortKeys[$key] = $sortBy == 'writes' ? $stats['avg'] : $stats['count'];
 }
-array_multisort($avg, SORT_DESC | SORT_NUMERIC, $groupedData);
+array_multisort($sortKeys, SORT_DESC | SORT_NUMERIC, $groupedData);
 
 echo "Count\tAvgWr\t$groupBy\n";
 foreach ($groupedData as $key => $stats) {
