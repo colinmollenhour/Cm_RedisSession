@@ -32,24 +32,36 @@ require 'app/Mage.php';
 Mage::app();
 
 if (empty($argv[1])) {
-  die('Must specify session glob pattern. E.g. sess_*');
+    die('Must specify session glob pattern. E.g. sess_*');
 }
 $sessionPattern = $argv[1];
-
+if (empty($argv[2])) {
+    die('Must specify group-by key. E.g. http_user_agent, remote_addr, http_secure, http_host, request_uri, is_new_visitor');
+}
+$groupBy = $argv[2];
 $redisSession = new Cm_RedisSession_Model_Session;
 $cursor = 0;
 
-function getSessionData($data, $key)
+$getSessionData = function ($data, $key) use ($groupBy)
 {
-    if (preg_match("/\"$key\";s:\d+:\"([^\"]+)\"/", $data, $matches)) {
-        return $matches[1];
+    switch ($groupBy) {
+        case 'is_new_visitor':
+            if (preg_match("/\"$key\";b:([01])/", $data, $matches)) {
+                return $matches[1];
+            }
+            break;
+        default: // remote_addr, http_secure, http_host, http_user_agent, request_uri, is_new_visitor
+            if (preg_match("/\"$key\";s:\\d+:\"([^\"]+)\"/", $data, $matches)) {
+                return $matches[1];
+            }
+            break;
     }
-    return NULL;
-}
+    return 'N/A';
+};
 
 $client = $redisSession->_redisClient(TRUE)->connect();
 
-$userAgents = array();
+$groupedData = array();
 $cursor = 0;
 while(1) {
     try {
@@ -65,12 +77,9 @@ while(1) {
     foreach ($keys as $sessionId) {
         $sessionData = $redisSession->_inspectSession($sessionId);
         $data = $sessionData['data'];
-        $userAgent = getSessionData($data, 'http_user_agent');
-        if ( ! $userAgent) {
-            echo "No user agent for $sessionId.\n";
-        }
-        $userAgents[$userAgent]['count'] ++;
-        $userAgents[$userAgent]['writes'] += $sessionData['writes'];
+        $key = $getSessionData($data, $groupBy);
+        $groupedData[$key]['count'] ++;
+        $groupedData[$key]['writes'] += $sessionData['writes'];
     }
     if ($cursor == 0) {
         break;
@@ -78,13 +87,13 @@ while(1) {
 }
 
 $avg = array();
-foreach ($userAgents as $userAgent => &$stats) {
-    $stats['avg'] = $avg[$userAgent] = $stats['writes'] / $stats['count'];
+foreach ($groupedData as $key => &$stats) {
+    $stats['avg'] = $avg[$key] = $stats['writes'] / $stats['count'];
 }
-array_multisort($avg, SORT_DESC | SORT_NUMERIC, $userAgents);
+array_multisort($avg, SORT_DESC | SORT_NUMERIC, $groupedData);
 
-echo "Count\tAvgWr\tUser-Agent\n";
-foreach ($userAgents as $userAgent => $stats) {
-    echo "{$stats['count']}\t{$stats['avg']}\t$userAgent\n";
+echo "Count\tAvgWr\t$groupBy\n";
+foreach ($groupedData as $key => $stats) {
+    echo "{$stats['count']}\t{$stats['avg']}\t$key\n";
 }
 echo "\n";
