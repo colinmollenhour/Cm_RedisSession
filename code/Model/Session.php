@@ -97,6 +97,12 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     public function __construct()
     {
         $this->_config = $config = Mage::getConfig()->getNode('global/redis_session');
+        if (!$config) {
+            $this->_useRedis = FALSE;
+            parent::__construct();
+            return;
+        }
+
         $this->_logLevel = (int) ($config->descend('log_level') ?: self::DEFAULT_LOG_LEVEL);
         if ($this->_logLevel >= Zend_Log::DEBUG) {
             $timeStart = microtime(true);
