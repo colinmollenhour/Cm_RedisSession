@@ -496,6 +496,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function getLifeTime()
     {
+        if ( ! $this->_config) return parent::getLifeTime();
+
         // Detect bots by user agent
         $botLifetime = (int) ($this->_config->descend('bot_lifetime') ?: self::DEFAULT_BOT_LIFETIME);
         if ($botLifetime) {
