@@ -53,7 +53,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 {
     const SLEEP_TIME         = 500000;   /* Sleep 0.5 seconds between lock attempts (1,000,000 == 1 second) */
     const FAIL_AFTER         = 15;       /* Try to break lock for at most this many seconds */
-    const DETECT_ZOMBIES     = 5;        /* Try to detect zombies every this many seconds */
+    const DETECT_ZOMBIES     = 20;        /* Try to detect zombies every this many tries */
     const MAX_LIFETIME       = 2592000;  /* Redis backend limit */
     const SESSION_PREFIX     = 'sess_';
     const LOG_FILE           = 'redis_session.log';
@@ -201,7 +201,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             $timeStart = microtime(true);
         }
         if ($this->_logLevel >= Zend_Log::DEBUG) {
-            $this->_log(sprintf("Attempting read lock on ID %s", $sessionId));
+            $this->_log(sprintf("Attempting to take lock on ID %s", $sessionId));
         }
         if ($this->_dbNum) {
             $this->_redis->select($this->_dbNum);
@@ -238,7 +238,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     }
                     if ($lock != 1) {
                         $this->_log(sprintf(
-                            "Successfully broke lock for ID %s %after %.5f seconds (%d attempts). Lock: %d\nLast request of broken lock: %s",
+                            "Successfully broke lock for ID %s after %.5f seconds (%d attempts). Lock: %d\nLast request of broken lock: %s",
                             $sessionId, (microtime(true) - $timeStart), $tries, $lock, $this->_redis->hGet($sessionId, 'req')
                         ), Zend_Log::INFO);
                     }
@@ -257,12 +257,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 do {
                     $waiting = $this->_redis->hIncrBy($sessionId, 'wait', 1);
                 } while (++$i < $this->_maxConcurrency && $waiting < 1);
-                if ($this->_logLevel >= Zend_Log::DEBUG) {
-                    $this->_log(sprintf(
-                        "Waiting for lock on ID %s (%s tries, %d waiting, %.5f seconds elapsed)",
-                        $sessionId, $tries, $waiting, (microtime(true) - $timeStart)
-                    ));
-                }
             }
 
             // Handle overloaded sessions
@@ -300,6 +294,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                             Mage::app()->getRequest()->getRequestUri(), Mage::app()->getRequest()->getClientIp(), Mage::app()->getRequest()->getHeader('User-Agent')
                         ), Zend_Log::WARN);
                     }
+                    $this->_logLevel = -1; // Disable further logging
                     require_once(Mage::getBaseDir() . DS . 'errors' . DS . '503.php');
                     exit;
                 }
@@ -307,13 +302,14 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 
             $tries++;
             $oldLockPid = $lockPid;
+            $sleepTime = self::SLEEP_TIME;
 
-            // Detect dead waiters
-            if ($tries == 1 /* TODO - $tries % 10 == 0 ? */) {
+            // Detect dead lock waiters
+            if ($tries % self::DETECT_ZOMBIES == 1) {
                 $detectZombies = TRUE;
-                usleep(self::SLEEP_TIME + 10000); // sleep + 0.01 seconds
+                $sleepTime += 10000; // sleep + 0.01 seconds
             }
-            // Detect dead processes every 10 seconds
+            // Detect dead lock holder every 10 seconds (only works on same node as lock holder)
             if ($tries % self::DETECT_ZOMBIES == 0) {
                 Varien_Profiler::start(__METHOD__.'-detect-zombies');
                 if ($this->_logLevel >= Zend_Log::DEBUG) {
@@ -348,12 +344,12 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             else {
                 if ($this->_logLevel >= Zend_Log::DEBUG) {
                     $this->_log(sprintf(
-                        "Waiting for lock on ID %s (%d tries, lock pid is %s, %.5f seconds elapsed)",
-                        $sessionId, $tries, $lockPid, (microtime(true) - $timeStart)
+                        "Waiting %.2f seconds for lock on ID %s (%d tries, lock pid is %s, %.5f seconds elapsed)",
+                        $sleepTime / 1000000, $sessionId, $tries, $lockPid, (microtime(true) - $timeStart)
                     ));
                 }
                 Varien_Profiler::start(__METHOD__.'-wait');
-                usleep(self::SLEEP_TIME);
+                usleep($sleepTime);
                 Varien_Profiler::stop(__METHOD__.'-wait');
             }
         }
@@ -365,10 +361,13 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         }
 
         // Session can be read even if it was not locked by this pid!
+        if ($this->_logLevel >= Zend_Log::DEBUG) {
+            $timeStart = microtime(true);
+        }
         list($sessionData, $sessionWrites) = $this->_redis->hMGet($sessionId, array('data','writes'));
         Varien_Profiler::stop(__METHOD__);
         if ($this->_logLevel >= Zend_Log::DEBUG) {
-            $this->_log(sprintf("Data read for ID %s after %.5f seconds", $sessionId, (microtime(true) - $timeStart)));
+            $this->_log(sprintf("Data read for ID %s in %.5f seconds", $sessionId, (microtime(true) - $timeStart)));
         }
         $this->_sessionWrites = (int) $sessionWrites;
         return $sessionData ? $this->_decodeData($sessionData) : '';
@@ -396,35 +395,28 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if ($this->_logLevel >= Zend_Log::WARN) {
             $timeStart = microtime(true);
         }
-        if ($this->_logLevel >= Zend_Log::DEBUG) {
-            $this->_log(sprintf("Attempting write to ID %s", $sessionId));
-        }
 
         // Do not overwrite the session if it is locked by another pid
         try {
             if($this->_dbNum) $this->_redis->select($this->_dbNum);  // Prevent conflicts with other connections?
 
-            if ( ! $this->_useLocking) {
-                $this->_writeRawSession($sessionId, $sessionData, $this->getLifeTime());
-            }
-            else if ( ! ($pid = $this->_redis->hGet('sess_'.$sessionId, 'pid')) || $pid == $this->_getPid()) {
-                if ($this->_logLevel >= Zend_Log::DEBUG) {
-                    $this->_log(sprintf("Write lock obtained on ID %s", $sessionId));
-                }
+            if ( ! $this->_useLocking
+              || ( ! ($pid = $this->_redis->hGet('sess_'.$sessionId, 'pid')) || $pid == $this->_getPid())
+            ) {
                 $this->_writeRawSession($sessionId, $sessionData, $this->getLifeTime());
                 if ($this->_logLevel >= Zend_Log::DEBUG) {
-                    $this->_log(sprintf("Data written to ID %s after %.5f seconds", $sessionId, (microtime(true) - $timeStart)));
+                    $this->_log(sprintf("Data written to ID %s in %.5f seconds", $sessionId, (microtime(true) - $timeStart)));
                 }
             }
             else {
                 if ($this->_logLevel >= Zend_Log::WARN) {
                     if ($this->_hasLock) {
-                        $this->_log(sprintf("Unable to write session after %.5f seconds, another process took the lock for ID %s",
-                            (microtime(true) - $timeStart), $sessionId
+                        $this->_log(sprintf("Did not write session for ID %s: another process took the lock.",
+                            $sessionId
                         ), Zend_Log::WARN);
                     } else {
-                        $this->_log(sprintf("Unable to write session after %.5f seconds, unable to acquire lock on ID %s",
-                            (microtime(true) - $timeStart), $sessionId
+                        $this->_log(sprintf("Did not write session for ID %s: unable to acquire lock.",
+                            $sessionId
                         ), Zend_Log::WARN);
                     }
                 }
