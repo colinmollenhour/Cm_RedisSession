@@ -55,6 +55,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const FAIL_AFTER         = 15;       /* Try to break lock for at most this many seconds */
     const DETECT_ZOMBIES     = 20;        /* Try to detect zombies every this many tries */
     const MAX_LIFETIME       = 2592000;  /* Redis backend limit */
+    const MIN_LIFETIME       = 60;
     const SESSION_PREFIX     = 'sess_';
     const LOG_FILE           = 'redis_session.log';
 
@@ -370,6 +371,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             $this->_log(sprintf("Data read for ID %s in %.5f seconds", $sessionId, (microtime(true) - $timeStart)));
         }
         $this->_sessionWrites = (int) $sessionWrites;
+        $this->getLifeTime(); // Get lifetime now in case there is a fatal error
         return $sessionData ? $this->_decodeData($sessionData) : '';
     }
 
@@ -491,34 +493,50 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     {
         if ( ! $this->_config) return parent::getLifeTime();
 
-        // Detect bots by user agent
-        $botLifetime = (int) ($this->_config->descend('bot_lifetime') ?: self::DEFAULT_BOT_LIFETIME);
-        if ($botLifetime) {
-            $userAgent = empty($_SERVER['HTTP_USER_AGENT']) ? FALSE : $_SERVER['HTTP_USER_AGENT'];
-            $isBot = ! $userAgent || preg_match(self::BOT_REGEX, $userAgent);
-            if ($isBot) {
-                if ($this->_logLevel > Zend_Log::DEBUG) {
-                    $this->_log(sprintf("Bot detected for user agent: %s", $userAgent));
+        if ($this->_lifeTime === NULL) {
+            $lifeTime = NULL;
+
+            // Detect bots by user agent
+            $botLifetime = (int) ($this->_config->descend('bot_lifetime') ?: self::DEFAULT_BOT_LIFETIME);
+            if ($botLifetime) {
+                $userAgent = empty($_SERVER['HTTP_USER_AGENT']) ? FALSE : $_SERVER['HTTP_USER_AGENT'];
+                $isBot = ! $userAgent || preg_match(self::BOT_REGEX, $userAgent);
+                if ($isBot) {
+                    if ($this->_logLevel > Zend_Log::DEBUG) {
+                        $this->_log(sprintf("Bot detected for user agent: %s", $userAgent));
+                    }
+                    if ( $this->_sessionWrites <= 1
+                      && ($botFirstLifetime = (int) ($this->_config->descend('bot_first_lifetime') ?: self::DEFAULT_BOT_FIRST_LIFETIME))
+                    ) {
+                        $lifeTime = $botFirstLifetime * (1+$this->_sessionWrites);
+                    } else {
+                        $lifeTime = min(parent::getLifeTime(), $botLifetime);
+                    }
                 }
-                if ( $this->_sessionWrites <= 1
-                  && ($botFirstLifetime = (int) ($this->_config->descend('bot_first_lifetime') ?: self::DEFAULT_BOT_FIRST_LIFETIME))
-                ) {
-                    return $botFirstLifetime * (1+$this->_sessionWrites);
+            }
+
+            // Use different lifetime for first write
+            if ($lifeTime === NULL && $this->_sessionWrites <= 1) {
+                $firstLifetime = (int) ($this->_config->descend('first_lifetime') ?: self::DEFAULT_FIRST_LIFETIME);
+                if ($firstLifetime) {
+                    $lifeTime = $firstLifetime * (1+$this->_sessionWrites);
                 }
-                return min(parent::getLifeTime(), $botLifetime);
+            }
+
+            // Neither bot nor first write
+            if ($lifeTime === NULL) {
+                $lifeTime = parent::getLifeTime();
+            }
+
+            $this->_lifeTime = $lifeTime;
+            if ($this->_lifeTime < self::MIN_LIFETIME) {
+                $this->_lifeTime = self::MIN_LIFETIME;
+            }
+            if ($this->_lifeTime > self::MAX_LIFETIME) {
+                $this->_lifeTime = self::MAX_LIFETIME;
             }
         }
-
-        // Use different lifetime for first write
-        $firstLifetime = NULL;
-        if ($this->_sessionWrites <= 1) {
-            $firstLifetime = (int) ($this->_config->descend('first_lifetime') ?: self::DEFAULT_FIRST_LIFETIME);
-            if ($firstLifetime) {
-                return $firstLifetime * (1+$this->_sessionWrites);
-            }
-        }
-
-        return parent::getLifeTime();
+        return $this->_lifeTime;
     }
 
     /**
