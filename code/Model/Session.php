@@ -225,29 +225,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                      && $oldLockPid == $lockPid        // Nobody else got the lock while we were waiting
                    )
             ) {
-                $setData = array(
-                    'pid' => $this->_getPid(),
-                    'lock' => 1,
-                );
-
-                // Save request data in session so if a lock is broken we can know which page it was for debugging
-                if ($this->_logLevel >= Zend_Log::INFO) {
-                    if (empty($_SERVER['REQUEST_METHOD'])) {
-                        $setData['req'] = $_SERVER['SCRIPT_NAME'];
-                    } else {
-                        $setData['req'] = "{$_SERVER['REQUEST_METHOD']} {$_SERVER['SERVER_NAME']}{$_SERVER['REQUEST_URI']}";
-                    }
-                    if ($lock != 1) {
-                        $this->_log(sprintf(
-                            "Successfully broke lock for ID %s after %.5f seconds (%d attempts). Lock: %d\nLast request of broken lock: %s",
-                            $sessionId, (microtime(true) - $timeStart), $tries, $lock, $this->_redis->hGet($sessionId, 'req')
-                        ), Zend_Log::INFO);
-                    }
-                }
-                $this->_redis->pipeline()
-                    ->hMSet($sessionId, $setData)
-                    ->expire($sessionId, min($this->getLifeTime(), self::MAX_LIFETIME))
-                    ->exec();
                 $this->_hasLock = TRUE;
                 break;
             }
@@ -356,11 +333,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         }
         self::$failedLockAttempts = $tries;
 
-        // This process is no longer waiting for a lock
-        if ($tries > 0) {
-            $this->_redis->hIncrBy($sessionId, 'wait', -1);
-        }
-
         // Session can be read even if it was not locked by this pid!
         if ($this->_logLevel >= Zend_Log::DEBUG) {
             $timeStart = microtime(true);
@@ -371,7 +343,42 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             $this->_log(sprintf("Data read for ID %s in %.5f seconds", $sessionId, (microtime(true) - $timeStart)));
         }
         $this->_sessionWrites = (int) $sessionWrites;
-        $this->getLifeTime(); // Get lifetime now in case there is a fatal error
+
+        $this->_redis->pipeline();
+
+        // This process is no longer waiting for a lock
+        if ($tries > 0) {
+            $this->_redis->hIncrBy($sessionId, 'wait', -1);
+        }
+
+        // This process has the lock, save the pid
+        if ($this->_hasLock) {
+            $setData = array(
+                'pid' => $this->_getPid(),
+                'lock' => 1,
+            );
+
+            // Save request data in session so if a lock is broken we can know which page it was for debugging
+            if ($this->_logLevel >= Zend_Log::INFO) {
+                if (empty($_SERVER['REQUEST_METHOD'])) {
+                    $setData['req'] = $_SERVER['SCRIPT_NAME'];
+                } else {
+                    $setData['req'] = "{$_SERVER['REQUEST_METHOD']} {$_SERVER['SERVER_NAME']}{$_SERVER['REQUEST_URI']}";
+                }
+                if ($lock != 1) {
+                    $this->_log(sprintf(
+                        "Successfully broke lock for ID %s after %.5f seconds (%d attempts). Lock: %d\nLast request of broken lock: %s",
+                        $sessionId, (microtime(true) - $timeStart), $tries, $lock, $this->_redis->hGet($sessionId, 'req')
+                    ), Zend_Log::INFO);
+                }
+            }
+            $this->_redis->hMSet($sessionId, $setData);
+        }
+
+        // Set session expiration
+        $this->_redis->expire($sessionId, min($this->getLifeTime(), self::MAX_LIFETIME));
+        $this->_redis->exec();
+
         return $sessionData ? $this->_decodeData($sessionData) : '';
     }
 
