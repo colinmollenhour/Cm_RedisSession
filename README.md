@@ -25,6 +25,11 @@
 - The lock may be broken after `BREAK_AFTER` seconds and the process that gets the lock is indeterminate.
 - Only `MAX_CONCURRENCY` processes may be waiting for a lock for the same session or else a 503 error is returned.
 
+#### Session Cookie Management: ####
+The Cookie Lifetime is configured here (Magento default): System > Configuration > Web > Session Cookie Management > Cookie Lifetime.
+You can override the default session lifetime settings of this module by setting the `<max_lifetime>` and `<min_lifetime>` handle if you need to adjust your session lifetime settings.
+Be aware that if the `<max_lifetime>` setting is below your Cookie Lifetime, the `<max_lifetime>`-setting will be taken.
+
 ## Installation ##
 
 1. Install module using [modman](https://github.com/colinmollenhour/modman):
@@ -67,6 +72,8 @@
             <bot_first_lifetime>60</bot_first_lifetime>          <!-- Lifetime of session for bots on the first write. 0 to disable -->
             <bot_lifetime>7200</bot_lifetime>                    <!-- Lifetime of session for bots on subsequent writes. 0 to disable -->
             <disable_locking>0</disable_locking>                 <!-- Disable session locking entirely. -->
+            <min_lifetime></min_lifetime>						 <!-- Set the minimum session lifetime -->
+            <max_lifetime></max_lifetime>						 <!-- Set the maximum session lifetime -->
         </redis_session>
         ...
     </global>
