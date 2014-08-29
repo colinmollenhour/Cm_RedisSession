@@ -72,8 +72,8 @@ Be aware that if the `<max_lifetime>` setting is below your Cookie Lifetime, the
             <bot_first_lifetime>60</bot_first_lifetime>          <!-- Lifetime of session for bots on the first write. 0 to disable -->
             <bot_lifetime>7200</bot_lifetime>                    <!-- Lifetime of session for bots on subsequent writes. 0 to disable -->
             <disable_locking>0</disable_locking>                 <!-- Disable session locking entirely. -->
-            <min_lifetime></min_lifetime>						 <!-- Set the minimum session lifetime -->
-            <max_lifetime></max_lifetime>						 <!-- Set the maximum session lifetime -->
+            <min_lifetime>2592000</min_lifetime>                <!-- Set the minimum session lifetime -->
+            <max_lifetime>60</max_lifetime>                     <!-- Set the maximum session lifetime -->
         </redis_session>
         ...
     </global>
