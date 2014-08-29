@@ -70,8 +70,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const DEFAULT_BOT_FIRST_LIFETIME    = 60;       /* The session lifetime for bots on the first write */
     const DEFAULT_BOT_LIFETIME          = 7200;     /* The session lifetime for bots - shorter to prevent bots from wasting backend storage */
     const DEFAULT_DISABLE_LOCKING       = FALSE;    /* Session locking is enabled by default */
-    const DEFAULT_MAX_LIFETIME			= 2592000;  /* Redis backend limit */
-    const DEFAULT_MIN_LIFETIME			= 60;
+    const DEFAULT_MAX_LIFETIME		= 2592000;  /* Redis backend limit */
+    const DEFAULT_MIN_LIFETIME		= 60;
 
     /** @var bool */
     protected $_useRedis;
@@ -125,8 +125,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_compressionLib = (string)    ($config->descend('compression_lib') ?: self::DEFAULT_COMPRESSION_LIB);
         $this->_maxConcurrency = (int)       ($config->descend('max_concurrency') ?: self::DEFAULT_MAX_CONCURRENCY);
         $this->_breakAfter = (float)         ($config->descend('break_after_'.session_name()) ?: self::DEFAULT_BREAK_AFTER);
-		$this->_maxLifetime = (int)          ($config->descend('max_lifetime') ?: self::DEFAULT_MAX_LIFETIME);
-		$this->_minLifetime = (int)          ($config->descend('min_lifetime') ?: self::DEFAULT_MIN_LIFETIME);
+	$this->_maxLifetime = (int)          ($config->descend('max_lifetime') ?: self::DEFAULT_MAX_LIFETIME);
+	$this->_minLifetime = (int)          ($config->descend('min_lifetime') ?: self::DEFAULT_MIN_LIFETIME);
         $this->_useLocking = defined('CM_REDISSESSION_LOCKING_ENABLED')
                     ? CM_REDISSESSION_LOCKING_ENABLED
                     : ! ($config->descend('disable_locking') ?: self::DEFAULT_DISABLE_LOCKING);
