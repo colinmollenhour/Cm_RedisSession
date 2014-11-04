@@ -383,6 +383,9 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_redis->expire($sessionId, min($this->getLifeTime(), $this->_maxLifetime));
         $this->_redis->exec();
 
+        // Reset flag in case of multiple session read/write operations
+        $this->_sessionWritten = FALSE;
+
         return $sessionData ? $this->_decodeData($sessionData) : '';
     }
 
