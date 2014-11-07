@@ -208,9 +208,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         if ($this->_logLevel >= Zend_Log::DEBUG) {
             $this->_log(sprintf("Attempting to take lock on ID %s", $sessionId));
         }
-        if ($this->_dbNum) {
-            $this->_redis->select($this->_dbNum);
-        }
+        $this->_redis->select($this->_dbNum);
         while ($this->_useLocking)
         {
             // Increment lock value for this session and retrieve the new value
