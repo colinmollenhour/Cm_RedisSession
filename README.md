@@ -3,7 +3,6 @@
 ### A Redis-based session handler for Magento with optimistic locking. ###
 
 #### Features: ####
-- Falls back to mysql handler if it can't connect to Redis. Mysql handler falls back to file handler.
 - When a session's data size exceeds the compression threshold the session data will be compressed.
 - Compression libraries supported are 'gzip', 'lzf', 'lz4', and 'snappy'.
 -- Gzip is the slowest but offers the best compression ratios.

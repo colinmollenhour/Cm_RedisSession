@@ -49,7 +49,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *  - Detects inactive waiting processes to prevent false-positives in concurrency throttling.
  *
  */
-class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
+class Cm_RedisSession_Model_Session implements Zend_Session_SaveHandler_Interface, SessionHandlerInterface
 {
     const SLEEP_TIME         = 500000;   /* Sleep 0.5 seconds between lock attempts (1,000,000 == 1 second) */
     const FAIL_AFTER         = 15;       /* Try to break lock for at most this many seconds */
@@ -73,9 +73,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const DEFAULT_MAX_LIFETIME		= 2592000;  /* Redis backend limit */
     const DEFAULT_MIN_LIFETIME		= 60;
 
-    /** @var bool */
-    protected $_useRedis;
-
     /** @var Credis_Client */
     protected $_redis;
 
@@ -94,6 +91,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     protected $_sessionWrites; // set expire time based on activity
     protected $_maxLifetime;
     protected $_minLifetime;
+    protected $_lifeTime;
+    protected $_lastId;
 
     static public $failedLockAttempts = 0; // for debug or informational purposes
 
@@ -101,9 +100,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     {
         $this->_config = $config = Mage::getConfig()->getNode('global/redis_session');
         if (!$config) {
-            $this->_useRedis = FALSE;
-            Mage::log('Redis configuration does not exist, falling back to MySQL handler.', Zend_Log::EMERG);
-            parent::__construct();
+            Mage::log('Redis configuration does not exist.', Zend_Log::EMERG);
             return;
         }
 
@@ -141,7 +138,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             $this->_redis->auth($pass) or Zend_Cache::throwException('Unable to authenticate with the redis server.');
         }
         $this->_redis->setCloseOnDestruct(FALSE);  // Destructor order cannot be predicted
-        $this->_useRedis = TRUE;
         if ($this->_logLevel >= Zend_Log::DEBUG) {
             $this->_log(sprintf("%s initialized for connection to %s:%s after %.5f seconds",
                 get_class($this), $host, $port, (microtime(true) - $timeStart)
@@ -165,25 +161,53 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function hasConnection()
     {
-        if( ! $this->_useRedis) return parent::hasConnection();
+        if( ! $this->_redis) return FALSE;
 
         try {
             $this->_redis->connect();
             if ($this->_logLevel >= Zend_Log::DEBUG) {
                 $this->_log("Connected to Redis");
             }
-            return TRUE;
         }
         catch (Exception $e) {
-            Mage::logException($e);
+            Mage::log('Unable to connect to Redis session server: '.$e->getMessage(), Zend_Log::EMERG);
             $this->_redis = NULL;
-            Mage::log('Unable to connect to Redis; falling back to MySQL handler', Zend_Log::EMERG);
-
-            // Fall-back to MySQL handler. If this fails, the file handler will be used.
-            $this->_useRedis = FALSE;
-            parent::__construct();
-            return parent::hasConnection();
         }
+        return !!$this->_redis;
+    }
+
+    /**
+     * Setup save handler
+     *
+     * @return Mage_Core_Model_Resource_Session
+     */
+    public function setSaveHandler()
+    {
+        if ($this->hasConnection()) {
+            session_set_save_handler(
+                array($this, 'open'),
+                array($this, 'close'),
+                array($this, 'read'),
+                array($this, 'write'),
+                array($this, 'destroy'),
+                array($this, 'gc')
+            );
+        } else {
+            session_save_path(Mage::getBaseDir('session'));
+        }
+        return $this;
+    }
+
+    /**
+     * Open Session - retrieve resources
+     *
+     * @param string $save_path
+     * @param string $name
+     * @return bool
+     */
+    public function open($save_path, $name)
+    {
+        return TRUE;
     }
 
     /**
@@ -194,7 +218,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function read($sessionId)
     {
-        if ( ! $this->_useRedis) return parent::read($sessionId);
         Varien_Profiler::start(__METHOD__);
 
         // Get lock on session. Increment the "lock" field and if the new value is 1, we have the lock.
@@ -378,11 +401,12 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         }
 
         // Set session expiration
-        $this->_redis->expire($sessionId, min($this->getLifeTime(), $this->_maxLifetime));
+        $this->_redis->expire($sessionId, $this->getLifeTime());
         $this->_redis->exec();
 
         // Reset flag in case of multiple session read/write operations
         $this->_sessionWritten = FALSE;
+        $this->_lastId = $sessionId;
 
         return $sessionData ? $this->_decodeData($sessionData) : '';
     }
@@ -397,7 +421,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     public function write($sessionId, $sessionData)
     {
         Varien_Profiler::start(__METHOD__);
-        if ( ! $this->_useRedis) return parent::write($sessionId, $sessionData);
+
+        $sessionId = 'sess_'.$sessionId;
         if ($this->_sessionWritten) {
             if ($this->_logLevel >= Zend_Log::DEBUG) {
                 $this->_log(sprintf("Repeated session write detected; skipping for ID %s", $sessionId));
@@ -415,7 +440,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             if($this->_dbNum) $this->_redis->select($this->_dbNum);  // Prevent conflicts with other connections?
 
             if ( ! $this->_useLocking
-              || ( ! ($pid = $this->_redis->hGet('sess_'.$sessionId, 'pid')) || $pid == $this->_getPid())
+              || ( ! ($pid = $this->_redis->hGet($sessionId, 'pid')) || $pid == $this->_getPid())
             ) {
                 $this->_writeRawSession($sessionId, $sessionData, $this->getLifeTime());
                 if ($this->_logLevel >= Zend_Log::DEBUG) {
@@ -457,7 +482,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function destroy($sessionId)
     {
-        if ( ! $this->_useRedis) return parent::destroy($sessionId);
         Varien_Profiler::start(__METHOD__);
 
         if ($this->_logLevel >= Zend_Log::DEBUG) {
@@ -474,15 +498,23 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     /**
      * Overridden to prevent calling getLifeTime at shutdown
      *
+     * @throws Exception
      * @return bool
      */
     public function close()
     {
-        if ( ! $this->_useRedis) return parent::close();
         if ($this->_logLevel >= Zend_Log::DEBUG) {
-            $this->_log("Closing connection");
+            $this->_log('Closing connection.');
         }
-        if ($this->_redis) $this->_redis->close();
+
+        if ($this->_redis) {
+            if ($this->_lastId && ! $this->_sessionWritten) {
+                $this->_writeRawSession($this->_lastId, NULL, $this->getLifeTime());
+            }
+
+            $this->_redis->close();
+        }
+
         return TRUE;
     }
 
@@ -494,7 +526,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function gc($maxLifeTime)
     {
-        if ( ! $this->_useRedis) return parent::gc($maxLifeTime);
         return TRUE;
     }
 
@@ -503,8 +534,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function getLifeTime()
     {
-        if ( ! $this->_config) return parent::getLifeTime();
-
         if ($this->_lifeTime === NULL) {
             $lifeTime = NULL;
 
@@ -535,19 +564,24 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 }
             }
 
-            // Neither bot nor first write
+            // Neither bot nor first write, get configured lifetime
             if ($lifeTime === NULL) {
-                $lifeTime = parent::getLifeTime();
+                $configNode = Mage::app()->getStore()->isAdmin()
+                    ? 'admin/security/session_cookie_lifetime'
+                    : 'web/cookie/cookie_lifetime';
+                $lifeTime = (int) Mage::getStoreConfig($configNode);
+                if ($lifeTime < 60) {
+                    $lifeTime = max(3600, ini_get('session.gc_maxlifetime'));
+                }
             }
 
+            // Constrain by min/max
+            $lifeTime = max($lifeTime, $this->_minLifetime);
+            $lifeTime = min($lifeTime, $this->_maxLifetime);
+
             $this->_lifeTime = $lifeTime;
-            if ($this->_lifeTime < $this->_minLifetime) {
-                $this->_lifeTime = $this->_minLifetime;
-            }
-            if ($this->_lifeTime > $this->_maxLifetime) {
-                $this->_lifeTime = $this->_maxLifetime;
-            }
         }
+
         return $this->_lifeTime;
     }
 
@@ -611,26 +645,26 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     /**
      * Public for testing/import purposes only.
      *
-     * @param $id
+     * @param $sessionId (with prefix)
      * @param $data
      * @param $lifetime
      * @throws Exception
      */
-    public function _writeRawSession($id, $data, $lifetime)
+    public function _writeRawSession($sessionId, $data, $lifetime)
     {
-        if ( ! $this->_useRedis) {
+        if ( ! $this->_redis) {
             throw new Exception('Not connected to redis!');
         }
 
-        $sessionId = 'sess_' . $id;
+        $hashData = array('lock' => 0); // 0 so that next lock attempt will get 1
+        if ($data !== NULL) {
+            $hashData['data'] = $this->_encodeData($data);
+        }
         $this->_redis->pipeline()
             ->select($this->_dbNum)
-            ->hMSet($sessionId, array(
-                'data' => $this->_encodeData($data),
-                'lock' => 0, // 0 so that next lock attempt will get 1
-            ))
+            ->hMSet($sessionId, $hashData)
             ->hIncrBy($sessionId, 'writes', 1)
-            ->expire($sessionId, min($lifetime, $this->_maxLifetime))
+            ->expire($sessionId, $lifetime)
             ->exec();
     }
 
@@ -641,7 +675,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
      */
     public function _inspectSession($id)
     {
-        if ( ! $this->_useRedis) {
+        if ( ! $this->_redis) {
             throw new Exception('Not connected to redis!');
         }
 

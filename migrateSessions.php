@@ -86,7 +86,7 @@ while ($sessionFile = readdir($dir))
     $afterSize += strlen($redisSession->_encodeData($sessionData));
   }
   else {
-    $redisSession->_writeRawSession($sessionId, $sessionData, $expiry - time());
+    $redisSession->_writeRawSession(Cm_RedisSession_Model_Session::SESSION_PREFIX.$sessionId, $sessionData, $expiry - time());
   }
   $elapsedTime += microtime(true) - $startTime;
   $migrated++;
