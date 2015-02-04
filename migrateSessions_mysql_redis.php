@@ -38,7 +38,7 @@ do {
     $query = $readConnection->select()
                         ->from(array('cs'=>$resource->getTableName('core/session')),
                                array('session_id', 'session_expires', 'session_data'))
-                        ->having("session_expires >= ?", $exptime)
+                        ->having("session_expires > ?", $exptime)
                         ->having("session_id != ?", $lastid)
                         ->limit($batchlimit)
                         ->order('session_expires');
