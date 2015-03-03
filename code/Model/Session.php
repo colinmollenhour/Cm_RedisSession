@@ -113,8 +113,8 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         }
 
         // Database config
-        $host = (string)       ($config->descend('host') ?: '127.0.0.1');
-        $port = (int)          ($config->descend('port') ?: '6379');
+        $host =                ("{$config->descend('host')}" ?: '127.0.0.1');
+        $port =                ((int) $config->descend('port') ?: 6379);
         $pass = (string)       ($config->descend('password') ?: '');
         $timeout = (float)     ($config->descend('timeout') ?: self::DEFAULT_TIMEOUT);
         $persistent = (string) ($config->descend('persistent') ?: '');
@@ -129,7 +129,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_minLifetime = (int)          ($config->descend('min_lifetime') ?: self::DEFAULT_MIN_LIFETIME);
         $this->_useLocking = defined('CM_REDISSESSION_LOCKING_ENABLED')
                     ? CM_REDISSESSION_LOCKING_ENABLED
-                    : ! ($config->descend('disable_locking') ?: self::DEFAULT_DISABLE_LOCKING);
+                    : ! (strlen("{$config->descend('disable_locking')}") ? (bool)"{$config->descend('disable_locking')}" : self::DEFAULT_DISABLE_LOCKING);
 
         // Use sleep time multiplier so break time is in seconds
         $this->_breakAfter = (int) round((1000000 / self::SLEEP_TIME) * $this->_breakAfter);
