@@ -346,8 +346,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         }
         $this->_sessionWrites = (int) $sessionWrites;
 
-        $this->_redis->pipeline();
-
         // This process is no longer waiting for a lock
         if ($tries > 0) {
             $this->_redis->hIncrBy($sessionId, 'wait', -1);
@@ -374,10 +372,13 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     ), Zend_Log::INFO);
                 }
             }
-            $this->_redis->hMSet($sessionId, $setData);
         }
 
-        // Set session expiration
+        // Set session data and expiration
+        $this->_redis->pipeline();
+        if ( ! empty($setData)) {
+            $this->_redis->hMSet($sessionId, $setData);
+        }
         $this->_redis->expire($sessionId, min($this->getLifeTime(), $this->_maxLifetime));
         $this->_redis->exec();
 
