@@ -124,7 +124,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_compressionThreshold = (int) ($config->descend('compression_threshold') ?: self::DEFAULT_COMPRESSION_THRESHOLD);
         $this->_compressionLib = (string)    ($config->descend('compression_lib') ?: self::DEFAULT_COMPRESSION_LIB);
         $this->_maxConcurrency = (int)       ($config->descend('max_concurrency') ?: self::DEFAULT_MAX_CONCURRENCY);
-        //$this->_breakAfter = (float)         ($config->descend('break_after_'.session_name()) ?: self::DEFAULT_BREAK_AFTER);
         $this->_maxLifetime = (int)          ($config->descend('max_lifetime') ?: self::DEFAULT_MAX_LIFETIME);
         $this->_minLifetime = (int)          ($config->descend('min_lifetime') ?: self::DEFAULT_MIN_LIFETIME);
         $this->_useLocking = defined('CM_REDISSESSION_LOCKING_ENABLED')
@@ -132,7 +131,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     : ! (strlen("{$config->descend('disable_locking')}") ? (bool)"{$config->descend('disable_locking')}" : self::DEFAULT_DISABLE_LOCKING);
 
         // Use sleep time multiplier so break time is in seconds
-        //$this->_breakAfter = (int) round((1000000 / self::SLEEP_TIME) * $this->_breakAfter);
         $this->_failAfter = (int) round((1000000 / self::SLEEP_TIME) * self::FAIL_AFTER);
 
         // Connect and authenticate
@@ -149,6 +147,13 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         }
     }
 
+    /*
+     * Get the _breakAfter value for the current session.
+     * Use this function rather than setting _breakAfter in the __construct method, because session_name() hasn't been set yet.
+     * That way, the config key properly resolves to 'break_after_backend' or 'break_after_frontend' instead of 'break_after_PHPSESSID'.
+     *
+     * @return int|bool
+     */
     protected function _getBreakAfter() {
         if (session_name() === 'PHPSESSID') {
             return false;
