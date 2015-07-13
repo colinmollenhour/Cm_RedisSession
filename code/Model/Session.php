@@ -124,7 +124,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_compressionThreshold = (int) ($config->descend('compression_threshold') ?: self::DEFAULT_COMPRESSION_THRESHOLD);
         $this->_compressionLib = (string)    ($config->descend('compression_lib') ?: self::DEFAULT_COMPRESSION_LIB);
         $this->_maxConcurrency = (int)       ($config->descend('max_concurrency') ?: self::DEFAULT_MAX_CONCURRENCY);
-        $this->_breakAfter = (float)         ($config->descend('break_after_'.session_name()) ?: self::DEFAULT_BREAK_AFTER);
         $this->_maxLifetime = (int)          ($config->descend('max_lifetime') ?: self::DEFAULT_MAX_LIFETIME);
         $this->_minLifetime = (int)          ($config->descend('min_lifetime') ?: self::DEFAULT_MIN_LIFETIME);
         $this->_useLocking = defined('CM_REDISSESSION_LOCKING_ENABLED')
@@ -132,7 +131,6 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                     : ! (strlen("{$config->descend('disable_locking')}") ? (bool)"{$config->descend('disable_locking')}" : self::DEFAULT_DISABLE_LOCKING);
 
         // Use sleep time multiplier so break time is in seconds
-        $this->_breakAfter = (int) round((1000000 / self::SLEEP_TIME) * $this->_breakAfter);
         $this->_failAfter = (int) round((1000000 / self::SLEEP_TIME) * self::FAIL_AFTER);
 
         // Connect and authenticate
@@ -202,6 +200,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $tries = $waiting = $lock = 0;
         $lockPid = $oldLockPid = NULL; // Restart waiting for lock when current lock holder changes
         $detectZombies = FALSE;
+        $breakAfter = $this->_getBreakAfter();
         if ($this->_logLevel >= Zend_Log::WARN) {
             $timeStart = microtime(true);
         }
@@ -216,16 +215,16 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             $lock = $this->_redis->hIncrBy($sessionId, 'lock', 1);
 
             // Get the pid of the process that has the lock
-            if ($lock != 1 && $tries + 1 >= $this->_breakAfter) {
+            if ($lock != 1 && $tries + 1 >= $breakAfter) {
                 $lockPid = $this->_redis->hGet($sessionId, 'pid');
             }
 
             // If we got the lock, update with our pid and reset lock and expiration
             if (   $lock == 1                          // We actually do have the lock
                 || (
-                        $tries >= $this->_breakAfter   // We are done waiting and want to start trying to break it
-                     && $oldLockPid == $lockPid        // Nobody else got the lock while we were waiting
-                   )
+                    $tries >= $breakAfter   // We are done waiting and want to start trying to break it
+                    && $oldLockPid == $lockPid        // Nobody else got the lock while we were waiting
+                )
             ) {
                 $this->_hasLock = TRUE;
                 break;
@@ -314,7 +313,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
                 Varien_Profiler::stop(__METHOD__.'-detect-zombies');
             }
             // Timeout
-            if ($tries >= $this->_breakAfter + $this->_failAfter) {
+            if ($tries >= $breakAfter + $this->_failAfter) {
                 $this->_hasLock = FALSE;
                 if ($this->_logLevel >= Zend_Log::NOTICE) {
                     $this->_log(sprintf("Giving up on read lock for ID %s after %.5f seconds (%d attempts)", $sessionId, (microtime(true) - $timeStart), $tries), Zend_Log::NOTICE);
@@ -691,6 +690,24 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
             return TRUE;
         }
         return @file_exists('/proc/'.$pid);
+    }
+
+    /**
+     * Get break time. Calculated later than other config settings due to requiring session name to be set.
+     * Public for testing/import purposes only.
+     * @return int
+     */
+    public function _getBreakAfter()
+    {
+        // Has break after already been calculated? Only fetch from config once, then reuse variable.
+        if (!$this->_breakAfter) {
+            // Fetch relevant setting from config using session name
+            $this->_breakAfter = (float)($this->_config->descend('break_after_' . session_name()) ?: self::DEFAULT_BREAK_AFTER);
+            // Use sleep time multiplier so break time is in seconds
+            $this->_breakAfter = (int)round((1000000 / self::SLEEP_TIME) * $this->_breakAfter);
+        }
+
+        return $this->_breakAfter;
     }
 
 }
