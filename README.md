@@ -34,7 +34,7 @@ Be aware that if the `<max_lifetime>` setting is below your Cookie Lifetime, the
 
 1. Install module using [modman](https://github.com/colinmollenhour/modman):
 
-        modman clone git://github.com/colinmollenhour/Cm_RedisSession.git
+        modman clone https://github.com/colinmollenhour/Cm_RedisSession
 
 2. Configure via app/etc/local.xml adding a `global/redis_session` section with the appropriate configuration if needed.
    See the "Configuration Example" below.
