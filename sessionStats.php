@@ -44,7 +44,7 @@ if (empty($argv[3])) {
 }
 $sortBy = $argv[3];
 
-$redisSession = new Cm_RedisSession_Model_Session;
+$redisSession = new Cm_RedisSession_Model_Session_Handler();
 $cursor = 0;
 
 $getSessionData = function ($data, $key) use ($groupBy)
@@ -64,7 +64,7 @@ $getSessionData = function ($data, $key) use ($groupBy)
     return 'N/A';
 };
 
-$client = $redisSession->_redisClient(TRUE)->connect();
+$client = $redisSession->redisClient(true)->connect();
 
 $groupedData = array();
 $cursor = 0;
@@ -80,7 +80,7 @@ while(1) {
         $cursor = 0;
     }
     foreach ($keys as $sessionId) {
-        $sessionData = $redisSession->_inspectSession($sessionId);
+        $sessionData = $redisSession->inspectSession($sessionId);
         $data = $sessionData['data'];
         $key = $getSessionData($data, $groupBy);
         $groupedData[$key]['count'] ++;

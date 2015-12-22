@@ -1,4 +1,4 @@
-<?php PHP_SAPI == 'cli' or die('CLI only.');
+<?php
 /*
 ==New BSD License==
 
@@ -15,6 +15,7 @@ modification, are permitted provided that the following conditions are met:
       documentation and/or other materials provided with the distribution.
     * The name of Colin Mollenhour may not be used to endorse or promote products
       derived from this software without specific prior written permission.
+    * Redistributions in any form must not change the Cm_RedisSession namespace.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -28,17 +29,41 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-require 'app/Mage.php';
-Mage::app();
+class Cm_RedisSession_Model_Session_Logger implements \Cm\RedisSession\Handler\LoggerInterface
+{
+    /** Log file */
+    const LOG_FILE = 'redis_session.log';
 
-if (empty($argv[1])) {
-  die('Must specify session id.');
+    /**
+     * Minimum severity level of events to log
+     *
+     * @var int
+     */
+    private $logLevel;
+
+    /**
+     * {@inheritDoc}
+     */
+    public function log($message, $level)
+    {
+        if ($level <= $this->logLevel) {
+            Mage::log($message, $level, self::LOG_FILE);
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function logException(\Exception $e)
+    {
+        Mage::logException($e);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function setLogLevel($level)
+    {
+        $this->logLevel = $level;
+    }
 }
-$sessionId = $argv[1];
-
-$redisSession = new \Cm_RedisSession_Model_Session_Handler();
-$sessionData = $redisSession->inspectSession($sessionId);
-$data = $sessionData['data'];
-unset($sessionData['data']);
-var_dump($sessionData);
-echo "DATA:\n$data\n";

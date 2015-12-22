@@ -14,7 +14,7 @@ define('PREFIX', 'PHPREDIS_SESSION:');
 * Set up the redis client
 */
 $_redis;
-$_redis = new Credis_Client('localhost', 6379, 90, True);
+$_redis = new Credis_Client('localhost', 6379, 90, true);
 $_redis->select(0) || Zend_Cache::throwException('The redis database could not be selected.');
 
 /**

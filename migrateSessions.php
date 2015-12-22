@@ -33,15 +33,16 @@ Mage::app();
 
 $test = in_array('--test', $argv);
 
-$coreSession = new Mage_Core_Model_Session_Abstract;
-$redisSession = new Cm_RedisSession_Model_Session;
+$coreSession = new Mage_Core_Model_Session_Abstract();
 
 $sessionPath = $coreSession->getSessionSavePath();
 if ( ! is_readable($sessionPath) || ! ($dir = opendir($sessionPath))) {
   die("The session save path is not readable: {$sessionPath}\n");
 }
 
-if( ! $redisSession->hasConnection()) {
+try {
+  $redisSession = new \Cm_RedisSession_Model_Session_Handler();
+} catch (\Cm\RedisSession\ConnectionFailedException $e) {
   die("Could not connect to redis server, please check your configuration.\n");
 }
 
@@ -83,10 +84,10 @@ while ($sessionFile = readdir($dir))
   $startTime = microtime(true);
   if($test) {
     $beforeSize += strlen($sessionData);
-    $afterSize += strlen($redisSession->_encodeData($sessionData));
+    $afterSize += strlen($redisSession->encodeData($sessionData));
   }
   else {
-    $redisSession->_writeRawSession($sessionId, $sessionData, $expiry - time());
+    $redisSession->writeRawSession($sessionId, $sessionData, $expiry - time());
   }
   $elapsedTime += microtime(true) - $startTime;
   $migrated++;
