@@ -1,7 +1,6 @@
-[submodule "lib/Credis"]
-    path = lib/Credis
+[submodule "credis"]
+    path = credis
     url = https://github.com/colinmollenhour/credis
-[submodule "lib/Cm/RedisSession"]
-    path = lib
-    url = https://github.com/magento/php-redis-session-abstract
-    branch = develop
+[submodule "php-redis-session-abstract"]
+    path = php-redis-session-abstract
+    url = https://github.com/colinmollenhour/php-redis-session-abstract

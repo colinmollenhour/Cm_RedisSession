@@ -1,5 +1,5 @@
 # Cm_RedisSession
-code                                   app/code/community/Cm/RedisSession
-Cm_RedisSession.xml                    app/etc/modules/Cm_RedisSession.xml
-lib/Credis                             lib/Credis
-lib/Cm/RedisSession                    lib/Cm/RedisSession
+code                                            app/code/community/Cm/RedisSession
+Cm_RedisSession.xml                             app/etc/modules/Cm_RedisSession.xml
+credis                                          lib/Credis
+php-redis-session-abstract/src/Cm/RedisSession  lib/Cm/RedisSession
