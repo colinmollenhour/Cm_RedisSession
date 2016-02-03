@@ -122,6 +122,16 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
     }
 
     /**
+     * @return {@inheritDoc}
+     */
+    public function getLifetime()
+    {
+        return Mage::app()->getStore()->isAdmin()
+            ? (int)Mage::getStoreConfig('admin/security/session_cookie_lifetime')
+            : Mage::getSingleton('core/cookie')->getLifetime();
+    }
+
+    /**
      * {@inheritDoc}
      */
     public function getMaxLifetime()

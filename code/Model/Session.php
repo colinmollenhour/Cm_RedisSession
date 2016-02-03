@@ -37,6 +37,12 @@ require_once __DIR__.'/../lib/Cm/RedisSession/ConcurrentConnectionsExceededExcep
 
 class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interface
 {
+
+    /**
+     * @var int|null
+     */
+    public static $failedLockAttempts;
+
     /**
      * @var \Cm\RedisSession\Handler
      */
@@ -103,8 +109,11 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
     public function read($sessionId)
     {
         try {
-            return $this->sessionHandler->read($sessionId);
+            $data = $this->sessionHandler->read($sessionId);
+            self::$failedLockAttempts = $this->sessionHandler->getFailedLockAttempts();
+            return $data;
         } catch (\Cm\RedisSession\ConcurrentConnectionsExceededException $e) {
+            self::$failedLockAttempts = $this->sessionHandler->getFailedLockAttempts();
             $this->handleException($e);
         }
     }
