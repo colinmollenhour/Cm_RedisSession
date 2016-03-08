@@ -8,14 +8,16 @@ ini_set('display_errors', 1);
 umask(0);
 Mage::app();
 
-define('PREFIX', 'PHPREDIS_SESSION:');
-
 /**
 * Set up the redis client
 */
 $_redis;
 $_redis = new Credis_Client('localhost', 6379, 90, True);
 $_redis->select(0) || Zend_Cache::throwException('The redis database could not be selected.');
+/**
+* Set up the Session Model to help with compression and other misc items.
+*/
+$session = Mage::getModel('Cm_RedisSession_Model_Session ');
 
 /**
 * Get the resource model
@@ -48,8 +50,7 @@ do {
         $lastid = $row['session_id'];
         $exptime = $row['session_expires'];
         $sesskey = PREFIX.$lastid;
-        $_redis->set($sesskey, $row['session_data']);
-        $_redis->expireat($sesskey, $exptime);
+        $session->_writeRawSession($sesskey, $row['session_data'],$exptime);
         echo $lastid . " " . $exptime . "\n";
     }
     echo "----------------------------------\n";
