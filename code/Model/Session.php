@@ -551,7 +551,7 @@ class Cm_RedisSession_Model_Session implements Zend_Session_SaveHandler_Interfac
                     ) {
                         $lifeTime = $botFirstLifetime * (1+$this->_sessionWrites);
                     } else {
-                        $lifeTime = min(parent::getLifeTime(), $botLifetime);
+                        $lifeTime = $botLifetime;
                     }
                 }
             }
