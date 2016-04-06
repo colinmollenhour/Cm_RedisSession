@@ -1,5 +1,5 @@
 {
-    "name":"colinmollenhour/redis-session",
+    "name":"colinmollenhour/magento-redis-session",
     "type":"magento-module",
     "license":"BSD-3-Clause",
     "homepage":"https://github.com/colinmollenhour/Cm_RedisSession",
