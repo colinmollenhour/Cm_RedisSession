@@ -9,7 +9,7 @@
             "name":"Colin Mollenhour"
         }
     ],
-    "require":{
-        "magento-hackathon/magento-composer-installer":"*"
+    "suggest":{
+        "magento-hackathon/magento-composer-installer":"Makes it possible to manage this package as a dependency"
     }
 }
