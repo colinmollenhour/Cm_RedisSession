@@ -52,7 +52,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
 {
     const SLEEP_TIME         = 500000;   /* Sleep 0.5 seconds between lock attempts (1,000,000 == 1 second) */
-    const FAIL_AFTER         = 15;       /* Try to break lock for at most this many seconds */
     const DETECT_ZOMBIES     = 20;        /* Try to detect zombies every this many tries */
     const SESSION_PREFIX     = 'sess_';
     const LOG_FILE           = 'redis_session.log';
@@ -66,6 +65,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     const DEFAULT_LOG_LEVEL             = 1;
     const DEFAULT_MAX_CONCURRENCY       = 6;        /* The maximum number of concurrent lock waiters per session */
     const DEFAULT_BREAK_AFTER           = 30;       /* Try to break the lock after this many seconds */
+    const DEFAULT_FAIL_AFTER            = 15;       /* Bail from obtaining lock after this many seconds (in addition to break after) */
     const DEFAULT_FIRST_LIFETIME        = 600;      /* The session lifetime for non-bots on the first write */
     const DEFAULT_BOT_FIRST_LIFETIME    = 60;       /* The session lifetime for bots on the first write */
     const DEFAULT_BOT_LIFETIME          = 7200;     /* The session lifetime for bots - shorter to prevent bots from wasting backend storage */
@@ -88,6 +88,7 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
     protected $_logLevel;
     protected $_maxConcurrency;
     protected $_breakAfter;
+    protected $_failAfter;
     protected $_useLocking;
     protected $_hasLock;
     protected $_sessionWritten; // avoid infinite loops
@@ -124,14 +125,15 @@ class Cm_RedisSession_Model_Session extends Mage_Core_Model_Mysql4_Session
         $this->_compressionThreshold = (int) ($config->descend('compression_threshold') ?: self::DEFAULT_COMPRESSION_THRESHOLD);
         $this->_compressionLib = (string)    ($config->descend('compression_lib') ?: self::DEFAULT_COMPRESSION_LIB);
         $this->_maxConcurrency = (int)       ($config->descend('max_concurrency') ?: self::DEFAULT_MAX_CONCURRENCY);
+        $this->_failAfter = (float)          ($config->descend('fail_after') ?: self::DEFAULT_FAIL_AFTER);
         $this->_maxLifetime = (int)          ($config->descend('max_lifetime') ?: self::DEFAULT_MAX_LIFETIME);
         $this->_minLifetime = (int)          ($config->descend('min_lifetime') ?: self::DEFAULT_MIN_LIFETIME);
         $this->_useLocking = defined('CM_REDISSESSION_LOCKING_ENABLED')
                     ? CM_REDISSESSION_LOCKING_ENABLED
                     : ! (strlen("{$config->descend('disable_locking')}") ? (bool)"{$config->descend('disable_locking')}" : self::DEFAULT_DISABLE_LOCKING);
 
-        // Use sleep time multiplier so break time is in seconds
-        $this->_failAfter = (int) round((1000000 / self::SLEEP_TIME) * self::FAIL_AFTER);
+        // Use sleep time multiplier so fail after time is in seconds
+        $this->_failAfter = (int) round((1000000 / self::SLEEP_TIME) * $this->_failAfter);
 
         // Connect and authenticate
         $this->_redis = new Credis_Client($host, $port, $timeout, $persistent);

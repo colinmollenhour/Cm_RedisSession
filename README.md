@@ -67,6 +67,7 @@ Be aware that if the `<max_lifetime>` setting is below your Cookie Lifetime, the
             <log_level>1</log_level>               <!-- 0 (emergency: system is unusable), 4 (warning; additional information, recommended), 5 (notice: normal but significant condition), 6 (info: informational messages), 7 (debug: the most information for development/testing) -->
             <max_concurrency>6</max_concurrency>                 <!-- maximum number of processes that can wait for a lock on one session; for large production clusters, set this to at least 10% of the number of PHP processes -->
             <break_after_frontend>5</break_after_frontend>       <!-- seconds to wait for a session lock in the frontend; not as critical as admin -->
+            <fail_after>10</fail_after>                          <!-- seconds after which we bail from attempting to obtain lock (in addition to break after time) -->
             <break_after_adminhtml>30</break_after_adminhtml>
             <first_lifetime>600</first_lifetime>                 <!-- Lifetime of session for non-bots on the first write. 0 to disable -->
             <bot_first_lifetime>60</bot_first_lifetime>          <!-- Lifetime of session for bots on the first write. 0 to disable -->
