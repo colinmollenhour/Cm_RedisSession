@@ -186,4 +186,12 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
     {
         return (int) $this->config->descend('break_after_' . session_name());
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getFailAfter()
+    {
+        return (float) $this->$config->descend('fail_after');
+    }
 }

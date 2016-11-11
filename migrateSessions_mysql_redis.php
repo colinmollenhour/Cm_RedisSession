@@ -11,13 +11,12 @@ Mage::app();
 /**
 * Set up the redis client
 */
-$_redis;
-$_redis = new Credis_Client('localhost', 6379, 90, true);
+$_redis = new Credis_Client('localhost', 6379, 90, True);
 $_redis->select(0) || Zend_Cache::throwException('The redis database could not be selected.');
 /**
 * Set up the Session Model to help with compression and other misc items.
 */
-$session = Mage::getModel('Cm_RedisSession_Model_Session ');
+$session = Mage::getModel('Cm_RedisSession_Model_Session');
 
 /**
 * Get the resource model
@@ -49,8 +48,8 @@ do {
     foreach($results as $row) {
         $lastid = $row['session_id'];
         $exptime = $row['session_expires'];
-        $sesskey = PREFIX.$lastid;
-        $session->_writeRawSession($sesskey, $row['session_data'],$exptime);
+        $sesskey = $lastid;
+        $session->_writeRawSession($sesskey, $row['session_data'], $exptime);
         echo $lastid . " " . $exptime . "\n";
     }
     echo "----------------------------------\n";

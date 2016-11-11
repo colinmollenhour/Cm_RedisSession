@@ -1,5 +1,5 @@
 {
-    "name":"colinmollenhour/redis-session",
+    "name":"colinmollenhour/magento-redis-session",
     "type":"magento-module",
     "license":"BSD-3-Clause",
     "homepage":"https://github.com/colinmollenhour/Cm_RedisSession",
@@ -9,7 +9,7 @@
             "name":"Colin Mollenhour"
         }
     ],
-    "require":{
-        "magento-hackathon/magento-composer-installer":"*"
+    "suggest":{
+        "magento-hackathon/magento-composer-installer":"Makes it possible to manage this package as a dependency"
     }
 }
