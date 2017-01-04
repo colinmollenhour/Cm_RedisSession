@@ -38,7 +38,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
 
     public function __construct()
     {
-        $this->config = Mage::getConfig()->getNode('global/redis_session');
+        $this->config = Mage::getConfig()->getNode('global/redis_session') ?: new Mage_Core_Model_Config_Element('<root></root>');
     }
 
     /**
