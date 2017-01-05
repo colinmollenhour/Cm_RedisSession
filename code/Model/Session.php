@@ -29,11 +29,15 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-require_once __DIR__.'/../lib/src/Cm/RedisSession/Handler/ConfigInterface.php';
-require_once __DIR__.'/../lib/src/Cm/RedisSession/Handler/LoggerInterface.php';
-require_once __DIR__.'/../lib/src/Cm/RedisSession/Handler.php';
-require_once __DIR__.'/../lib/src/Cm/RedisSession/ConnectionFailedException.php';
-require_once __DIR__.'/../lib/src/Cm/RedisSession/ConcurrentConnectionsExceededException.php';
+// Modman install will have files in module directory (submodule) and composer install
+// will have files in vendor directory with autoloader registered
+if (is_dir(__DIR__.'/../lib/src/Cm/RedisSession')) {
+    require_once __DIR__.'/../lib/src/Cm/RedisSession/Handler/ConfigInterface.php';
+    require_once __DIR__.'/../lib/src/Cm/RedisSession/Handler/LoggerInterface.php';
+    require_once __DIR__.'/../lib/src/Cm/RedisSession/Handler.php';
+    require_once __DIR__.'/../lib/src/Cm/RedisSession/ConnectionFailedException.php';
+    require_once __DIR__.'/../lib/src/Cm/RedisSession/ConcurrentConnectionsExceededException.php';
+}
 
 class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interface
 {
