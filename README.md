@@ -62,8 +62,8 @@ Be aware that if the `<max_lifetime>` setting is below your Cookie Lifetime, the
             <timeout>2.5</timeout>            <!-- This is the Redis connection timeout, not the locking timeout -->
             <persistent></persistent>         <!-- Specify unique string to enable persistent connections. E.g.: sess-db0; bugs with phpredis and php-fpm are known: https://github.com/nicolasff/phpredis/issues/70 -->
             <db>0</db>                        <!-- Redis database number; protection from accidental loss is improved by using a unique DB number for sessions -->
-            <compression_threshold>2048</compression_threshold>  <!-- Set to 0 to disable compression (recommended when suhosin.session.encrypt=on); known bug with strings over 64k: https://github.com/colinmollenhour/Cm_Cache_Backend_Redis/issues/18 -->
-            <compression_lib>gzip</compression_lib>              <!-- gzip, lzf, lz4 or snappy -->
+            <compression_threshold>2048</compression_threshold>  <!-- Known bug with strings over 64k: https://github.com/colinmollenhour/Cm_Cache_Backend_Redis/issues/18 -->
+            <compression_lib>gzip</compression_lib>              <!-- gzip, lzf, lz4, snappy or none to disable compression -->
             <log_level>1</log_level>               <!-- 0 (emergency: system is unusable), 4 (warning; additional information, recommended), 5 (notice: normal but significant condition), 6 (info: informational messages), 7 (debug: the most information for development/testing) -->
             <max_concurrency>6</max_concurrency>                 <!-- maximum number of processes that can wait for a lock on one session; for large production clusters, set this to at least 10% of the number of PHP processes -->
             <break_after_frontend>5</break_after_frontend>       <!-- seconds to wait for a session lock in the frontend; not as critical as admin -->
@@ -106,10 +106,10 @@ are both good `maxmemory-policy` settings.
 ## Compression ##
 
 Session data compresses very well so using compression is a great way to increase your capacity without
-dedicating a ton of RAM to Redis. Compression can be disabled by setting the `compression_threshold` to 0.
+dedicating a ton of RAM to Redis and reducing network utilization.
 The default `compression threshold` is 2048 bytes so any session data equal to or larger than this size
-will be compressed with the chosen `compression_lib` which is 'gzip' by default. However, both lzf and
-snappy offer much faster compression with comparable compression ratios so I definitely recommend using
+will be compressed with the chosen `compression_lib` which is `gzip` by default.  Compression can be disabled by setting the `compression_lib` to `none`. However, both `lzf` and
+`snappy` offer much faster compression with comparable compression ratios so I definitely recommend using
 one of these if you have root. lzf is easy to install via pecl:
 
     sudo pecl install lzf
