@@ -152,7 +152,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getDisableLocking()
     {
-        return (string) $this->config->descend('disable_locking');
+        return $this->config->is('disable_locking');
     }
 
     /**
