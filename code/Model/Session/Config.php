@@ -194,4 +194,36 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
     {
         return (float) $this->config->descend('fail_after');
     }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getSentinelServers()
+    {
+        return (string) $this->config->descend('sentinel_servers');
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getSentinelMaster()
+    {
+        return (string) $this->config->descend('sentinel_master');
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getSentinelVerifyMaster()
+    {
+        return $this->config->is('sentinel_verify_master');
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getSentinelConnectRetries()
+    {
+        return (int) $this->config->descend('sentinel_connect_retries');
+    }
 }
