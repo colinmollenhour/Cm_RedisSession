@@ -1,6 +1,0 @@
-[submodule "credis"]
-    path = credis
-    url = https://github.com/colinmollenhour/credis
-[submodule "php-redis-session-abstract"]
-	path = code/lib
-    url = https://github.com/colinmollenhour/php-redis-session-abstract
