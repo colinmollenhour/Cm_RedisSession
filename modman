@@ -1,4 +1,4 @@
 # Cm_RedisSession
-code                                            app/code/local/Cm/RedisSession
-Cm_RedisSession.xml                             app/etc/modules/Cm_RedisSession_Local.xml
-credis                                          app/code/local/Credis
+app/code/local/Cm/RedisSession                  app/code/local/Cm/RedisSession
+app/etc/modules/Cm_RedisSession_Local.xml       app/etc/modules/Cm_RedisSession_Local.xml
+app/code/local/Credis                           app/code/local/Credis
