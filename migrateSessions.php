@@ -64,7 +64,7 @@ while ($sessionFile = readdir($dir))
     die("Could not read $file. Please run the script as root or as the web server user.\n");
   }
   if ( ! preg_match('/^sess_(\w+)$/', $sessionFile, $matches)) {
-    die("Session file name does not match expected pattern: sess_\\w+\n");
+    die("Session file name does not match expected pattern (sess_\\w+): $sessionFile\n");
   }
   $sessionId = $matches[1];
   $i++;

@@ -16,7 +16,7 @@ $_redis->select(0) || Zend_Cache::throwException('The redis database could not b
 /**
 * Set up the Session Model to help with compression and other misc items.
 */
-$session = Mage::getModel('Cm_RedisSession_Model_Session');
+$redisSession = new \Cm_RedisSession_Model_Session_Handler();
 
 /**
 * Get the resource model
@@ -49,13 +49,9 @@ do {
         $lastid = $row['session_id'];
         $exptime = $row['session_expires'];
         $sesskey = $lastid;
-        $session->_writeRawSession($sesskey, $row['session_data'], $exptime);
+        $redisSession->writeRawSession($sesskey, $row['session_data'], $exptime);
         echo $lastid . " " . $exptime . "\n";
     }
     echo "----------------------------------\n";
 } while( !empty($results) );
 
-/*
-Zend_Debug::dump($_SESSION);
-*/
-?>
