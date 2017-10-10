@@ -32,11 +32,16 @@ Be aware that if the `<max_lifetime>` setting is below your Cookie Lifetime, the
 
 ## Installation ##
 
-1. Install module using [composer](https://getcomposer.org/) with the
+1a. Install module using [modman](https://github.com/colinmollenhour/modman):
+
+    modman clone https://github.com/colinmollenhour/Cm_RedisSession
+
+1b. Or install module using [composer](https://getcomposer.org/) with the
    [magento-composer-installer](https://github.com/Cotya/magento-composer-installer) plugin:
 
         composer require magento-hackathon/magento-composer-installer; # If not already installed
         composer require colinmollenhour/magento-redis-session;
+
 2. Remove lib/Credis from your Magento installation. This module includes a newer version of the
    Credis library and, due to the Magento 1 autoloader works, the version that ships with core
    Magento must be removed.
