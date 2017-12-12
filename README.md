@@ -81,6 +81,7 @@ The Magento Compiler feature is currently not supported.
             <disable_locking>0</disable_locking>                 <!-- Disable session locking entirely. -->
             <min_lifetime>60</min_lifetime>                      <!-- Set the minimum session lifetime -->
             <max_lifetime>2592000</max_lifetime>                 <!-- Set the maximum session lifetime -->
+            <log_exceptions>0</log_exceptions>                   <!-- Log connection failure and concurrent connection exceptions in exception.log. -->
         </redis_session>
         ...
     </global>
