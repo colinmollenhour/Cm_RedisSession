@@ -50,7 +50,7 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
     /**
      * @var \Cm\RedisSession\Handler
      */
-    private $sessionHandler;
+    protected $sessionHandler;
 
     public function __construct()
     {
@@ -170,10 +170,16 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
      * @param \Exception $e
      * @return void
      */
-    private function handleException(\Exception $e)
+    protected function handleException(\Exception $e)
     {
-        Mage::logException($e);
-        require_once Mage::getBaseDir() . DS . 'errors' . DS . '503.php';
+        if (Mage::getConfig()->getNode('global/redis_session')->is('log_exceptions')) {
+            Mage::logException($e);
+        }
+        if ($e instanceof \Cm\RedisSession\ConcurrentConnectionsExceededException) {
+            require_once Mage::getBaseDir() . DS . 'errors' . DS . '503.php';
+        } else {
+            Mage::printException($e);
+        }
         exit;
     }
 }

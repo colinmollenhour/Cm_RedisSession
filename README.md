@@ -32,6 +32,12 @@ Be aware that if the `<max_lifetime>` setting is below your Cookie Lifetime, the
 
 ## Installation ##
 
+This extension can be installed with either Composer or modman.
+
+The Magento Compiler feature is currently not supported.
+
+#### Modman Installation ####
+
 1. Install module using [modman](https://github.com/colinmollenhour/modman):
 
         modman clone https://github.com/colinmollenhour/Cm_RedisSession
@@ -75,6 +81,7 @@ Be aware that if the `<max_lifetime>` setting is below your Cookie Lifetime, the
             <disable_locking>0</disable_locking>                 <!-- Disable session locking entirely. -->
             <min_lifetime>60</min_lifetime>                      <!-- Set the minimum session lifetime -->
             <max_lifetime>2592000</max_lifetime>                 <!-- Set the maximum session lifetime -->
+            <log_exceptions>0</log_exceptions>                   <!-- Log connection failure and concurrent connection exceptions in exception.log. -->
         </redis_session>
         ...
     </global>
