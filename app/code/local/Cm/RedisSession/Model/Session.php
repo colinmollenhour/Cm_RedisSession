@@ -42,6 +42,8 @@ if (is_dir(__DIR__.'/../lib/src/Cm/RedisSession')) {
 class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interface
 {
 
+    const FLAG_READ_ONLY = 'cm-redissession-read-only';
+
     /**
      * @var int|null
      */
@@ -57,7 +59,8 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
         try {
             $this->sessionHandler = new \Cm\RedisSession\Handler(
                 new Cm_RedisSession_Model_Session_Config(),
-                new Cm_RedisSession_Model_Session_Logger()
+                new Cm_RedisSession_Model_Session_Logger(),
+                Mage::app()->getFrontController()->getAction() && Mage::app()->getFrontController()->getAction()->getFlag('', self::FLAG_READ_ONLY) ?: false
             );
         } catch (\Cm\RedisSession\ConnectionFailedException $e) {
             $this->handleException($e);
