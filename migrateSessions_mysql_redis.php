@@ -42,7 +42,7 @@ do {
                         ->having("session_expires > ?", $exptime)
                         ->having("session_id != ?", $lastid)
                         ->limit($batchlimit)
-                        ->order('session_expires');
+                        ->order('session_expires ' . Varien_Data_Collection::SORT_ORDER_DESC);
     $results = $readConnection->fetchAll($query);
     //var_dump($results);
     foreach($results as $row) {
