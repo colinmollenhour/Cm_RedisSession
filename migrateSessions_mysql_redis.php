@@ -50,7 +50,7 @@ do {
         $exptime = $row['session_expires'];
         $sesskey = $lastid;
         $redisSession->writeRawSession($sesskey, $row['session_data'], $exptime);
-        echo $lastid . " " . $exptime . "\n";
+        echo $lastid . " " . date('Y-m-d H:i:s', $exptime) . "\n";
     }
     echo "----------------------------------\n";
 } while( !empty($results) );
