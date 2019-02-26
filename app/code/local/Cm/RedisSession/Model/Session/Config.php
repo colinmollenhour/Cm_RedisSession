@@ -32,13 +32,39 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\ConfigInterface
 {
     /**
-     * @var \Mage_Core_Model_Config_Element
+     * @var Varien_Object
      */
-    protected $config;
+    protected $config = null;
 
     public function __construct($path = 'global/redis_session')
     {
-        $this->config = Mage::getConfig()->getNode($path) ?: new Mage_Core_Model_Config_Element('<root></root>');
+        $config = Mage::getConfig()->getNode($path) ?: new Mage_Core_Model_Config_Element('<root></root>');
+
+        // Clone the XML Config data to varien object to fix: https://github.com/colinmollenhour/Cm_RedisSession/issues/155
+        $this->config = new Varien_Object([
+            'log_level' => (int) $config->descend('log_level'),
+            'host' => (string) $config->descend('host'),
+            'port' => (int) $config->descend('port'),
+            'db' => (int) $config->descend('db'),
+            'password' => (string) $config->descend('password'),
+            'timeout' => (float) $config->descend('timeout'),
+            'persistent' => (string) $config->descend('persistent'),
+            'compression_threshold' => (int) $config->descend('compression_threshold'),
+            'compression_lib' => (string) $config->descend('compression_lib'),
+            'max_concurrency' => (int) $config->descend('max_concurrency'),
+            'max_lifetime' => (int) $config->descend('max_lifetime'),
+            'min_lifetime' => (int) $config->descend('min_lifetime'),
+            'disable_locking' => $config->is('disable_locking'),
+            'bot_lifetime' => (int) $config->descend('bot_lifetime'),
+            'bot_first_lifetime' => (int) $config->descend('bot_first_lifetime'),
+            'first_lifetime' => (int) $config->descend('first_lifetime'),
+            'fail_after' => (float) $config->descend('fail_after'),
+            'sentinel_servers' => (string) $config->descend('sentinel_servers'),
+            'sentinel_master' => (string) $config->descend('sentinel_master'),
+            'sentinel_verify_master' => $config->is('sentinel_verify_master'),
+            'sentinel_connect_retries' => (int) $config->descend('sentinel_connect_retries'),
+            'break_after_' . session_name() => (int) $config->descend('break_after_' . session_name()),
+        ]);
     }
 
     /**
@@ -46,7 +72,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getLogLevel()
     {
-        return (int) $this->config->descend('log_level');
+        return $this->config->getData('log_level');
     }
 
     /**
@@ -54,7 +80,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getHost()
     {
-        return (string) $this->config->descend('host');
+        return $this->config->getData('host');
     }
 
     /**
@@ -62,7 +88,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getPort()
     {
-        return (int) $this->config->descend('port');
+        return $this->config->getData('port');
     }
 
     /**
@@ -70,7 +96,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getDatabase()
     {
-        return (int) $this->config->descend('db');
+        return $this->config->getData('db');
     }
 
     /**
@@ -78,7 +104,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getPassword()
     {
-        return (string) $this->config->descend('password');
+        return $this->config->getData('password');
     }
 
     /**
@@ -86,7 +112,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getTimeout()
     {
-        return (float) $this->config->descend('timeout');
+        return $this->config->getData('timeout');
     }
 
     /**
@@ -94,7 +120,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getPersistentIdentifier()
     {
-        return (string) $this->config->descend('persistent');
+        return $this->config->getData('persistent');
     }
 
     /**
@@ -102,7 +128,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getCompressionThreshold()
     {
-        return (int) $this->config->descend('compression_threshold');
+        return $this->config->getData('compression_threshold');
     }
 
     /**
@@ -110,7 +136,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getCompressionLibrary()
     {
-        return (string) $this->config->descend('compression_lib');
+        return $this->config->getData('compression_lib');
     }
 
     /**
@@ -118,7 +144,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getMaxConcurrency()
     {
-        return (int) $this->config->descend('max_concurrency');
+        return $this->config->getData('max_concurrency');
     }
 
     /**
@@ -136,7 +162,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getMaxLifetime()
     {
-        return (int) $this->config->descend('max_lifetime');
+        return $this->config->getData('max_lifetime');
     }
 
     /**
@@ -144,7 +170,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getMinLifetime()
     {
-        return (int) $this->config->descend('min_lifetime');
+        return $this->config->getData('min_lifetime');
     }
 
     /**
@@ -152,7 +178,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getDisableLocking()
     {
-        return $this->config->is('disable_locking');
+        return $this->config->getData('disable_locking');
     }
 
     /**
@@ -160,7 +186,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getBotLifetime()
     {
-        return (int) $this->config->descend('bot_lifetime');
+        return $this->config->getData('bot_lifetime');
     }
 
     /**
@@ -168,7 +194,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getBotFirstLifetime()
     {
-        return (int) $this->config->descend('bot_first_lifetime');
+        return $this->config->getData('bot_first_lifetime');
     }
 
     /**
@@ -176,7 +202,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getFirstLifetime()
     {
-        return (int) $this->config->descend('first_lifetime');
+        return $this->config->getData('first_lifetime');
     }
 
     /**
@@ -184,7 +210,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getBreakAfter()
     {
-        return (int) $this->config->descend('break_after_' . session_name());
+        return $this->config->getData('break_after_' . session_name());
     }
 
     /**
@@ -192,7 +218,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getFailAfter()
     {
-        return (float) $this->config->descend('fail_after');
+        return $this->config->getData('fail_after');
     }
 
     /**
@@ -200,7 +226,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getSentinelServers()
     {
-        return (string) $this->config->descend('sentinel_servers');
+        return $this->config->getData('sentinel_servers');
     }
 
     /**
@@ -208,7 +234,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getSentinelMaster()
     {
-        return (string) $this->config->descend('sentinel_master');
+        return $this->config->getData('sentinel_master');
     }
 
     /**
@@ -216,7 +242,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getSentinelVerifyMaster()
     {
-        return $this->config->is('sentinel_verify_master');
+        return $this->config->getData('sentinel_verify_master');
     }
 
     /**
@@ -224,6 +250,6 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getSentinelConnectRetries()
     {
-        return (int) $this->config->descend('sentinel_connect_retries');
+        return $this->config->getData('sentinel_connect_retries');
     }
 }
