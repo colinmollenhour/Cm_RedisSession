@@ -31,12 +31,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // Modman install will have files in module directory (submodule) and composer install
 // will have files in vendor directory with autoloader registered
-if (is_dir(__DIR__.'/../lib/src/Cm/RedisSession')) {
-    require_once __DIR__.'/../lib/src/Cm/RedisSession/Handler/ConfigInterface.php';
-    require_once __DIR__.'/../lib/src/Cm/RedisSession/Handler/LoggerInterface.php';
-    require_once __DIR__.'/../lib/src/Cm/RedisSession/Handler.php';
-    require_once __DIR__.'/../lib/src/Cm/RedisSession/ConnectionFailedException.php';
-    require_once __DIR__.'/../lib/src/Cm/RedisSession/ConcurrentConnectionsExceededException.php';
+if (is_dir(Mage::getModuleDir('lib', 'Cm_RedisSession') . DS . 'src' . DS . 'Cm' . DS . 'RedisSession')) {
+    require_once Mage::getModuleDir('lib', 'Cm_RedisSession') . DS . 'src' . DS . 'Cm' . DS . 'RedisSession' . DS . 'Handler' . DS . 'ConfigInterface.php';
+    require_once Mage::getModuleDir('lib', 'Cm_RedisSession') . DS . 'src' . DS . 'Cm' . DS . 'RedisSession' . DS . 'Handler' . DS . 'LoggerInterface.php';
+    require_once Mage::getModuleDir('lib', 'Cm_RedisSession') . DS . 'src' . DS . 'Cm' . DS . 'RedisSession' . DS . 'Handler.php';
+    require_once Mage::getModuleDir('lib', 'Cm_RedisSession') . DS . 'src' . DS . 'Cm' . DS . 'RedisSession' . DS . 'ConnectionFailedException.php';
+    require_once Mage::getModuleDir('lib', 'Cm_RedisSession') . DS . 'src' . DS . 'Cm' . DS . 'RedisSession' . DS . 'ConcurrentConnectionsExceededException.php';
 }
 
 class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interface
