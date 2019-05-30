@@ -39,8 +39,8 @@ do {
     $query = $readConnection->select()
                         ->from(array('cs'=>$resource->getTableName('core/session')),
                                array('session_id', 'session_expires', 'session_data'))
-                        ->having("session_expires > ?", $exptime)
-                        ->having("session_id != ?", $lastid)
+                        ->where("session_expires > ?", $exptime)
+                        ->where("session_id != ?", $lastid)
                         ->limit($batchlimit)
                         ->order('session_expires ' . Varien_Data_Collection::SORT_ORDER_DESC);
     $results = $readConnection->fetchAll($query);
