@@ -16,7 +16,7 @@
 - Detects inactive waiting processes to prevent false-positives in concurrency throttling.
 - Detects crashed processes to prevent session deadlocks (Linux only).
 - Gives shorter session lifetimes to bots and crawlers to reduce wasted resources.
-- Locking can be disabled entirely using config or `define('CM_REDISSESSION_LOCKING_ENABLED', FALSE);`.
+- Locking can be disabled entirely using config or `define('CM_REDISSESSION_LOCKING_ENABLED', FALSE);` or by setting `$this->setFlag('', Cm_RedisSession_Model_Session::FLAG_READ_ONLY, 1)` flag in controller predispatch.
 - Requires PHP >= 5.3. Yes, this is a feature. You're welcome. ;)
 
 #### Locking Algorithm Properties: ####
