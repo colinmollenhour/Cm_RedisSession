@@ -60,7 +60,9 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
             $this->sessionHandler = new \Cm\RedisSession\Handler(
                 new Cm_RedisSession_Model_Session_Config(),
                 new Cm_RedisSession_Model_Session_Logger(),
-                Mage::app()->getFrontController()->getAction() && Mage::app()->getFrontController()->getAction()->getFlag('', self::FLAG_READ_ONLY) ?: false
+                Mage::registry('controller')
+                  && Mage::app()->getFrontController()->getAction()
+                  && Mage::app()->getFrontController()->getAction()->getFlag('', self::FLAG_READ_ONLY)
             );
         } catch (\Cm\RedisSession\ConnectionFailedException $e) {
             $this->handleException($e);
