@@ -38,11 +38,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   </modules>
   <global>
     <models>
-      <core_mysql4>
+      <core_resource>
         <rewrite>
           <session>Cm_RedisSession_Model_Session</session>
         </rewrite>
-      </core_mysql4>
+      </core_resource>
     </models>
   </global>
 </config>
