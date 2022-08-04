@@ -34,7 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   <modules>
     <Cm_RedisSession>
       <active>true</active>
-      <codePool>local</codePool>
+      <codePool>community</codePool>
     </Cm_RedisSession>
   </modules>
 </config>

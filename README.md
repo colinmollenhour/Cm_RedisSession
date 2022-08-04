@@ -34,6 +34,8 @@ Be aware that if the `<max_lifetime>` setting is below your Cookie Lifetime, the
 
 This extension can be installed with either Composer or modman.
 
+**Important:** The 3.0.0 release is packaged exclusively as a composer module and cannot be installed with modman. If you do not use composer stick with the 2.x release.
+
 The Magento Compiler feature is currently not supported.
 
 #### Modman Installation ####

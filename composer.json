@@ -10,6 +10,7 @@
         }
     ],
     "require": {
+      "colinmollenhour/credis": "*",
       "colinmollenhour/php-redis-session-abstract": "~1.4.0"
     },
     "suggest":{
