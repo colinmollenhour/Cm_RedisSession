@@ -33,7 +33,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 <config>
   <modules>
     <Cm_RedisSession>
-      <version>0.2</version>
+      <version>3.0</version>
     </Cm_RedisSession>
   </modules>
   <global>
