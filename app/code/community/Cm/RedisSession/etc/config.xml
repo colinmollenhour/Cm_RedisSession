@@ -38,7 +38,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   </modules>
   <global>
     <models>
-       <core_resource>
+      <core_resource>
         <rewrite>
           <session>Cm_RedisSession_Model_Session</session>
         </rewrite>
