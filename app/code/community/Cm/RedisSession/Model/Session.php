@@ -43,12 +43,13 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
      * @var \Cm\RedisSession\Handler
      */
     protected $sessionHandler;
+    protected bool $dieOnError = true;
 
-    public function __construct()
+    public function __construct($config = array())
     {
         try {
             $this->sessionHandler = new \Cm\RedisSession\Handler(
-                new Cm_RedisSession_Model_Session_Config(),
+                new Cm_RedisSession_Model_Session_Config($config['session_name'] ?? 'default'),
                 new Cm_RedisSession_Model_Session_Logger(),
                 Mage::registry('controller')
                   && Mage::app()->getFrontController()->getAction()
@@ -59,10 +60,15 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
         }
     }
 
+    public function setDieOnError(bool $flag): void
+    {
+        $this->dieOnError = $flag;
+    }
+
     /**
      * Setup save handler
      *
-     * @return Mage_Core_Model_Resource_Session
+     * @return $this
      */
     public function setSaveHandler()
     {
@@ -96,14 +102,19 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
      */
     public function open($savePath, $sessionName)
     {
-        return $this->sessionHandler->open($savePath, $sessionName);
+        try {
+            return $this->sessionHandler->open($savePath, $sessionName);
+        } catch (Throwable $e) {
+            $this->handleException($e);
+            return false;
+        }
     }
 
     /**
      * Fetch session data
      *
      * @param string $sessionId
-     * @return string
+     * @return string|bool
      */
     public function read($sessionId)
     {
@@ -114,6 +125,7 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
         } catch (\Cm\RedisSession\ConcurrentConnectionsExceededException $e) {
             self::$failedLockAttempts = $this->sessionHandler->getFailedLockAttempts();
             $this->handleException($e);
+            return false;
         }
     }
 
@@ -167,14 +179,17 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
      */
     protected function handleException(\Exception $e)
     {
-        if (Mage::getConfig()->getNode('global/redis_session')->is('log_exceptions')) {
-            Mage::logException($e);
-        }
         if ($e instanceof \Cm\RedisSession\ConcurrentConnectionsExceededException) {
-            require_once Mage::getBaseDir() . DS . 'errors' . DS . '503.php';
-        } else {
+            Mage::register('concurrent_connections_exceeded', true);
+            if (Mage::getConfig()->getNode('global/redis_session')->is('log_exceptions')) {
+                Mage::logException($e);
+            }
+            if ($this->dieOnError) {
+                require_once Mage::getBaseDir() . DS . 'errors' . DS . '503.php';
+                die();
+            }
+        } else if ($this->dieOnError) {
             Mage::printException($e);
         }
-        exit;
     }
 }

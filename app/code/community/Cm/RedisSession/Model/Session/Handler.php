@@ -34,7 +34,7 @@ class Cm_RedisSession_Model_Session_Handler extends \Cm\RedisSession\Handler
     public function __construct()
     {
         parent::__construct(
-            new Cm_RedisSession_Model_Session_Config(),
+            new Cm_RedisSession_Model_Session_Config('adminhtml'),
             new Cm_RedisSession_Model_Session_Logger()
         );
     }

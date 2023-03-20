@@ -36,9 +36,9 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     protected $config = null;
 
-    public function __construct($path = 'global/redis_session')
+    public function __construct(string $sessionName)
     {
-        $config = Mage::getConfig()->getNode($path) ?: new Mage_Core_Model_Config_Element('<root></root>');
+        $config = Mage::getConfig()->getNode('global/redis_session') ?: new Mage_Core_Model_Config_Element('<root></root>');
 
         // Clone the XML Config data to varien object to fix: https://github.com/colinmollenhour/Cm_RedisSession/issues/155
         $this->config = new Varien_Object([
@@ -63,7 +63,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
             'sentinel_master' => (string) $config->descend('sentinel_master'),
             'sentinel_verify_master' => $config->is('sentinel_verify_master'),
             'sentinel_connect_retries' => (int) $config->descend('sentinel_connect_retries'),
-            'break_after_' . session_name() => (int) $config->descend('break_after_' . session_name()),
+            'break_after' => (int) $config->descend('break_after_' . $sessionName),
         ]);
     }
 
@@ -210,7 +210,7 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
      */
     public function getBreakAfter()
     {
-        return $this->config->getData('break_after_' . session_name());
+        return $this->config->getData('break_after');
     }
 
     /**
