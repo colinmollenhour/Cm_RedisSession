@@ -43,7 +43,11 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
      * @var \Cm\RedisSession\Handler
      */
     protected $sessionHandler;
-    protected bool $dieOnError = true;
+
+    /**
+     * @var bool
+     */
+    protected $dieOnError = true;
 
     public function __construct($config = array())
     {
@@ -56,7 +60,12 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
         );
     }
 
-    public function setDieOnError(bool $flag): void
+    /**
+     * Setup die on error
+     * 
+     * @param bool $flag
+     */
+    public function setDieOnError($flag)
     {
         $this->dieOnError = $flag;
     }
