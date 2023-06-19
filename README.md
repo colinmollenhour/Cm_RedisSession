@@ -43,7 +43,7 @@ The Magento Compiler feature is currently not supported.
 1. Install module using [modman](https://github.com/colinmollenhour/modman):
 
         modman clone https://github.com/colinmollenhour/Cm_RedisSession
-
+   If you want to install a specific version, you can add `-- --branch x.y.z` to the command.
 2. Configure via app/etc/local.xml adding a `global/redis_session` section with the appropriate configuration if needed.
    See the "Configuration Example" below.
 3. Refresh the config cache to allow the module to be installed by Magento.
