@@ -29,7 +29,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interface
+class Cm_RedisSession_Model_Session implements SessionHandlerInterface
 {
 
     const FLAG_READ_ONLY = 'cm-redissession-read-only';
@@ -96,12 +96,13 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
      * @return bool
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
+    #[\ReturnTypeWillChange]
     public function open($savePath, $sessionName)
     {
         try {
             return $this->sessionHandler->open($savePath, $sessionName);
         } catch (Throwable $e) {
-            $this->handleException($e);
+            throw $this->handleException($e);
         }
     }
 
@@ -111,6 +112,7 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
      * @param string $sessionId
      * @return string|bool
      */
+    #[\ReturnTypeWillChange]
     public function read($sessionId)
     {
         try {
@@ -119,7 +121,7 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
             return $data;
         } catch (Throwable $e) {
             self::$failedLockAttempts = $this->sessionHandler->getFailedLockAttempts();
-            $this->handleException($e);
+            throw $this->handleException($e);
         }
     }
 
@@ -130,6 +132,7 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
      * @param string $sessionData
      * @return boolean
      */
+    #[\ReturnTypeWillChange]
     public function write($sessionId, $sessionData)
     {
         return $this->sessionHandler->write($sessionId, $sessionData);
@@ -141,6 +144,7 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
      * @param string $sessionId
      * @return boolean
      */
+    #[\ReturnTypeWillChange]
     public function destroy($sessionId)
     {
         return $this->sessionHandler->destroy($sessionId);
@@ -151,6 +155,7 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
      *
      * @return bool
      */
+    #[\ReturnTypeWillChange]
     public function close()
     {
         return $this->sessionHandler->close();
@@ -162,6 +167,7 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
      * @param int $maxLifeTime ignored
      * @return boolean
      */
+    #[\ReturnTypeWillChange]
     public function gc($maxLifeTime)
     {
         return $this->sessionHandler->gc($maxLifeTime);
@@ -169,7 +175,7 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
 
     /**
      * @param Throwable $e
-     * @return void
+     * @return Throwable
      */
     protected function handleException(Throwable $e)
     {
@@ -185,6 +191,6 @@ class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interfa
         } else if ($this->dieOnError) {
             Mage::printException($e);
         }
-        throw $e;
+        return $e;
     }
 }
