@@ -37,6 +37,19 @@ if (is_dir(__DIR__.'/../lib/src/Cm/RedisSession')) {
     require_once __DIR__.'/../lib/src/Cm/RedisSession/Handler.php';
     require_once __DIR__.'/../lib/src/Cm/RedisSession/ConnectionFailedException.php';
     require_once __DIR__.'/../lib/src/Cm/RedisSession/ConcurrentConnectionsExceededException.php';
+} else {
+    foreach (['/Cm_RedisSession_lib_src_Cm_RedisSession_ConcurrentConnectionsExceededException.php',
+                '/Cm_RedisSession_lib_src_Cm_RedisSession_ConnectionFailedException.php',
+                '/Cm_RedisSession_lib_src_Cm_RedisSession_Handler_ConfigInterface.php',
+                '/Cm_RedisSession_lib_src_Cm_RedisSession_Handler_LoggerInterface.php',
+                '/Cm_RedisSession_lib_src_Cm_RedisSession_Handler.php',
+            ] as $file) {
+        if (file_exists(__DIR__ . $file)) {
+            require_once __DIR__ . $file;
+        } else {
+            break;
+        }
+    }
 }
 
 class Cm_RedisSession_Model_Session implements \Zend_Session_SaveHandler_Interface
