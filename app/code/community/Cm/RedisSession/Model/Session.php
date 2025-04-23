@@ -68,14 +68,7 @@ class Cm_RedisSession_Model_Session implements SessionHandlerInterface
      */
     public function setSaveHandler()
     {
-        session_set_save_handler(
-            array($this, 'open'),
-            array($this, 'close'),
-            array($this, 'read'),
-            array($this, 'write'),
-            array($this, 'destroy'),
-            array($this, 'gc')
-        );
+        session_set_save_handler($this);
         return $this;
     }
 
