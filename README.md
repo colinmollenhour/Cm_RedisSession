@@ -90,6 +90,7 @@ The Magento Compiler feature is currently not supported.
              Note for TLS options: If the cluster seeds start with "ssl:// or tls://", 
              it will connect to the seeds via TLS, but the subsequent connections will connect without TLS if this value is null.
              So, if your nodes require TLS, this value must be an array, even if empty.
+             https://github.com/phpredis/phpredis/blob/6.2.0/cluster.md#declaring-a-cluster-with-an-array-of-seeds
             -->
             <tls_options></tls_options>                          <!-- Optional: For example <tls_options><verify_peer>1</verify_peer></tls_options>, See https://www.php.net/manual/en/context.ssl.php -->
             <use_default_tls_options></use_default_tls_options>  <!-- Optional: Always set tls_options to empty array if value is Truthy -->
