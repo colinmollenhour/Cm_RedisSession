@@ -84,6 +84,21 @@ The Magento Compiler feature is currently not supported.
             <min_lifetime>60</min_lifetime>                      <!-- Set the minimum session lifetime -->
             <max_lifetime>2592000</max_lifetime>                 <!-- Set the maximum session lifetime -->
             <log_exceptions>0</log_exceptions>                   <!-- Log connection failure and concurrent connection exceptions in exception.log. -->
+            <retries>0</retries>                                 <!-- Connection retries for sentinels -->
+            <username></username>                                <!-- Optional: username -->
+            <!-- 
+             Note for TLS options: If the cluster seeds start with "ssl:// or tls://", 
+             it will connect to the seeds via TLS, but the subsequent connections will connect without TLS if this value is null.
+             So, if your nodes require TLS, this value must be an array, even if empty.
+            -->
+            <tls_options></tls_options>                          <!-- Optional: For example <tls_options><verify_peer>1</verify_peer></tls_options>, See https://www.php.net/manual/en/context.ssl.php -->
+            <use_default_tls_options></use_default_tls_options>  <!-- Optional: Always set tls_options to empty array if value is Truthy -->
+            <sentinel_password></sentinel_password>              <!-- Optional: Redis Sentinel password -->
+            <cluster>                                            <!-- Optional: Ignore <host/> and <port/> when set and change client to cluster mode -->
+                <seeds></seeds>                                  <!-- Required: Comma separate host and port seed nodes, For example <seeds>tls://redis-1:6379,tls://redis-2:6379</seeds> -->
+                <name></name>                                    <!-- Optional: Name for cluster as read in redis.ini -->
+                <persistent></persistent>                        <!-- Optional: Should we use persistent connection? -->
+            </cluster>
         </redis_session>
         ...
     </global>
