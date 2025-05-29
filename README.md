@@ -95,8 +95,8 @@ The Magento Compiler feature is currently not supported.
             <use_default_tls_options></use_default_tls_options>  <!-- Optional: Always set tls_options to empty array if value is Truthy -->
             <sentinel_password></sentinel_password>              <!-- Optional: Redis Sentinel password -->
             <cluster>                                            <!-- Optional: Ignore <host/> and <port/> when set and change client to cluster mode -->
-                <seeds></seeds>                                  <!-- Required: Comma separate host and port seed nodes, For example <seeds>tls://redis-1:6379,tls://redis-2:6379</seeds> -->
-                <name></name>                                    <!-- Optional: Name for cluster as read in redis.ini -->
+                <seeds></seeds>                                  <!-- Optional: Comma separate host and port seed nodes, For example <seeds>tls://redis-1:6379,tls://redis-2:6379</seeds> -->
+                <name></name>                                    <!-- Optional: Name for cluster as read in redis.ini; See https://github.com/phpredis/phpredis/blob/6.2.0/cluster.md#loading-a-cluster-configuration-by-name -->
                 <persistent></persistent>                        <!-- Optional: Should we use persistent connection? -->
             </cluster>
         </redis_session>
