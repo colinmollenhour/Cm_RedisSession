@@ -11,7 +11,7 @@
     ],
     "require": {
       "colinmollenhour/credis": "*",
-      "colinmollenhour/php-redis-session-abstract": "~1.4"
+      "colinmollenhour/php-redis-session-abstract": "~2.1"
     },
     "suggest":{
         "magento-hackathon/magento-composer-installer":"Makes it possible to manage this package as a dependency"

@@ -29,7 +29,11 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\ConfigInterface
+class Cm_RedisSession_Model_Session_Config implements
+    \Cm\RedisSession\Handler\ConfigInterface,
+    \Cm\RedisSession\Handler\UsernameConfigInterface,
+    \Cm\RedisSession\Handler\TlsOptionsConfigInterface,
+    \Cm\RedisSession\Handler\ConfigSentinelPasswordInterface
 {
     /**
      * @var Varien_Object
@@ -64,7 +68,20 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
             'sentinel_verify_master' => $config->is('sentinel_verify_master'),
             'sentinel_connect_retries' => (int) $config->descend('sentinel_connect_retries'),
             'break_after' => (int) $config->descend('break_after_' . $sessionName),
+            'retries' => (int) $config->descend('retries'),
+            'username' => $config->descend('username') ? (string) $config->descend('username') : null,
+            'tls_options' => $config->descend('use_default_tls_options') ? [] : ($config->descend('tls_options') ? (array) $config->descend('tls_options') : null),
+            'sentinel_password' => $config->descend('sentinel_password') ? (string) $config->descend('sentinel_password') : (string) $config->descend('password'),
         ]);
+    }
+
+    public static function create(string $sessionName)
+    {
+        $clusterConfig = Mage::getConfig()->getNode('global/redis_session/cluster') ?: new Mage_Core_Model_Config_Element('<root></root>');
+        if ($clusterConfig->hasChildren()) {
+            return new Cm_RedisSession_Model_Session_ClusterConfig($sessionName, $clusterConfig);
+        }
+        return new self($sessionName);
     }
 
     /**
@@ -251,5 +268,37 @@ class Cm_RedisSession_Model_Session_Config implements \Cm\RedisSession\Handler\C
     public function getSentinelConnectRetries()
     {
         return $this->config->getData('sentinel_connect_retries');
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getRetries()
+    {
+        return $this->config->getData('retries');
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getUsername(): ?string
+    {
+        return $this->config->getData('username');
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getTlsOptions(): ?array
+    {
+        return $this->config->getData('tls_options');
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getSentinelPassword(): ?string
+    {
+        return $this->config->getData('sentinel_password');
     }
 }
