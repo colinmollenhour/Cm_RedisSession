@@ -48,7 +48,7 @@ class Cm_RedisSession_Model_Session implements SessionHandlerInterface
     public function __construct($config = array())
     {
         $this->sessionHandler = new \Cm\RedisSession\Handler(
-            new Cm_RedisSession_Model_Session_Config($config['session_name'] ?? 'default'),
+            Cm_RedisSession_Model_Session_Config::create($config['session_name'] ?? 'default'),
             new Cm_RedisSession_Model_Session_Logger(),
             Mage::registry('controller')
               && Mage::app()->getFrontController()->getAction()
